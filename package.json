@@ -1,0 +1,20 @@
+{
+  "name": "math-tutor",
+  "version": "1.0.0",
+  "description": "AI-powered math tutoring game with AWS Bedrock",
+  "private": true,
+  "workspaces": [
+    "frontend",
+    "backend"
+  ],
+  "scripts": {
+    "dev:frontend": "cd frontend && npm run dev",
+    "build:frontend": "cd frontend && npm run build",
+    "dev:backend": "cd backend && npm run dev",
+    "build:backend": "cd backend && npm run build",
+    "deploy": "sam deploy --guided"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0"
+  }
+}
