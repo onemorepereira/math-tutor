@@ -5,7 +5,7 @@
     </div>
 
     <div v-else-if="currentProblem" class="game-container">
-      <div class="game-header">
+      <div v-if="!feedback" class="game-header">
         <div class="progress-info">
           <h3>Problem {{ currentProblemNumber }} of {{ totalProblems }}</h3>
           <div class="progress-bar">
@@ -91,7 +91,7 @@
         <h3>{{ feedback.message }}</h3>
         <p v-if="feedback.details">{{ feedback.details }}</p>
         <button @click="handleNextProblem" class="btn btn-primary">
-          {{ currentProblemNumber >= totalProblems ? 'View Scorecard' : 'Next Problem' }}
+          {{ currentProblemNumber > totalProblems ? 'View Scorecard' : 'Next Problem' }}
         </button>
         <p v-if="feedback.type === 'success'" class="hint-text">Press Enter to continue</p>
       </div>
@@ -225,7 +225,7 @@ async function handleNextProblem() {
   feedback.value = null
   userAnswer.value = ''
 
-  if (currentProblemNumber.value >= totalProblems.value) {
+  if (currentProblemNumber.value > totalProblems.value) {
     router.push({ name: 'scorecard' })
   } else {
     await gameStore.loadNextProblem()

@@ -53,22 +53,10 @@
           <div class="stat-label">Correct Answers</div>
           <div class="tooltip-text">All the questions you got right</div>
         </div>
-      </div>
 
-      <!-- Activity Heatmap -->
-      <div v-if="stats.dailyActivity" class="activity-section">
-        <h3>Your {{ currentYear }} Activity</h3>
-        <p class="section-subtitle">Days you practiced math this year</p>
-        <div class="heatmap-container">
-          <div class="heatmap-months">
-            <div v-for="month in months" :key="month" class="month-label">{{ month }}</div>
-          </div>
+        <!-- Activity Heatmap -->
+        <div v-if="stats.dailyActivity" class="heatmap-container card" title="Your practice activity this month">
           <div class="heatmap-grid">
-            <div class="heatmap-weekdays">
-              <div class="weekday-label">Mon</div>
-              <div class="weekday-label">Wed</div>
-              <div class="weekday-label">Fri</div>
-            </div>
             <div class="heatmap-days">
               <div
                 v-for="day in yearDays"
@@ -88,6 +76,7 @@
             <div class="legend-box level-4"></div>
             <span class="legend-label">More</span>
           </div>
+          <div class="tooltip-text">Days you practiced this month ({{ currentMonthName }})</div>
         </div>
       </div>
 
@@ -212,27 +201,34 @@ const sessions = ref<any[]>([])
 const sessionsToShow = ref(5)
 const startingTopic = ref<string | null>(null)
 
-const currentYear = new Date().getFullYear()
-const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
 const displayedSessions = computed(() => {
   return sessions.value.slice(0, sessionsToShow.value)
 })
 
+const currentMonthName = computed(() => {
+  const now = new Date()
+  return monthNames[now.getMonth()] + ' ' + now.getFullYear()
+})
+
 const yearDays = computed(() => {
   const days: Array<{ date: string, activity: any }> = []
-  const startDate = new Date(currentYear, 0, 1) // January 1st of current year
+  const now = new Date()
 
-  // Start from the Monday of the week containing Jan 1
-  const dayOfWeek = startDate.getDay()
-  const offset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek // Adjust to previous Monday
-  const firstMonday = new Date(startDate)
-  firstMonday.setDate(startDate.getDate() + offset)
+  // Get the first day of current month
+  const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
 
-  // Generate 53 weeks worth of days (371 days to cover full year)
-  for (let i = 0; i < 371; i++) {
-    const date = new Date(firstMonday)
-    date.setDate(firstMonday.getDate() + i)
+  // Find the Monday of the week containing the first day of the month
+  const dayOfWeek = firstDayOfMonth.getDay()
+  const offset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek
+  const startMonday = new Date(firstDayOfMonth)
+  startMonday.setDate(firstDayOfMonth.getDate() + offset)
+
+  // Generate approximately 5-6 weeks of days (enough to cover the current month)
+  for (let i = 0; i < 42; i++) {
+    const date = new Date(startMonday)
+    date.setDate(startMonday.getDate() + i)
 
     const dateKey = date.toISOString().split('T')[0]
     const activity = stats.value.dailyActivity?.[dateKey] || null
@@ -458,35 +454,23 @@ function getDayTooltip(day: { date: string, activity: any }): string {
   font-size: 0.9rem;
 }
 
-.activity-section {
-  margin-bottom: 3rem;
-}
-
-.activity-section h3 {
-  margin-bottom: 0.5rem;
-  color: #333;
-}
-
 .heatmap-container {
-  background: white;
   padding: 1.5rem;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  overflow-x: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  transition: all 0.3s;
 }
 
-.heatmap-months {
-  display: grid;
-  grid-template-columns: repeat(12, 1fr);
-  gap: 4px;
-  margin-bottom: 0.5rem;
-  padding-left: 30px;
+.heatmap-container:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
 }
 
-.month-label {
-  font-size: 0.75rem;
-  color: #6c757d;
-  text-align: left;
+.heatmap-container:hover .tooltip-text {
+  opacity: 1;
 }
 
 .heatmap-grid {
@@ -494,31 +478,18 @@ function getDayTooltip(day: { date: string, activity: any }): string {
   gap: 4px;
 }
 
-.heatmap-weekdays {
-  display: grid;
-  grid-template-rows: repeat(7, 12px);
-  gap: 4px;
-  padding-right: 4px;
-}
-
-.weekday-label {
-  font-size: 0.7rem;
-  color: #6c757d;
-  line-height: 12px;
-  text-align: right;
-}
-
 .heatmap-days {
   display: grid;
-  grid-template-rows: repeat(7, 12px);
+  grid-template-rows: repeat(7, 14px);
   grid-auto-flow: column;
-  gap: 4px;
+  gap: 3px;
   flex: 1;
+  justify-content: center;
 }
 
 .heatmap-day {
-  width: 12px;
-  height: 12px;
+  width: 14px;
+  height: 14px;
   border-radius: 2px;
   cursor: pointer;
   transition: all 0.2s;
@@ -553,17 +524,37 @@ function getDayTooltip(day: { date: string, activity: any }): string {
 .heatmap-legend {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  margin-top: 1rem;
-  justify-content: flex-end;
-  font-size: 0.75rem;
+  gap: 0.4rem;
+  margin-top: 0.75rem;
+  justify-content: center;
+  font-size: 0.7rem;
   color: #6c757d;
 }
 
 .legend-box {
-  width: 12px;
-  height: 12px;
+  width: 10px;
+  height: 10px;
   border-radius: 2px;
+}
+
+.legend-box.level-0 {
+  background: #ebedf0;
+}
+
+.legend-box.level-1 {
+  background: #9be9a8;
+}
+
+.legend-box.level-2 {
+  background: #40c463;
+}
+
+.legend-box.level-3 {
+  background: #30a14e;
+}
+
+.legend-box.level-4 {
+  background: #216e39;
 }
 
 .legend-label {
