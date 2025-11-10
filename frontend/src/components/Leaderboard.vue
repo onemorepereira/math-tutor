@@ -133,4 +133,44 @@ onMounted(async () => {
   min-width: 80px;
   text-align: right;
 }
+
+@media (max-width: 768px) {
+  .leaderboard {
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
+  }
+
+  .leaderboard h3 {
+    font-size: 1.3rem;
+    margin-bottom: 1rem;
+  }
+
+  .leaderboard-entry {
+    gap: 0.5rem;
+    padding: 0.65rem;
+  }
+
+  .rank {
+    font-size: 1.1rem;
+    min-width: 35px;
+  }
+
+  .medal {
+    font-size: 1.4rem;
+  }
+
+  .screen-name {
+    font-size: 0.95rem;
+  }
+
+  .stats {
+    font-size: 0.7rem;
+  }
+
+  .score {
+    font-size: 1.1rem;
+    min-width: 55px;
+  }
+}
 </style>

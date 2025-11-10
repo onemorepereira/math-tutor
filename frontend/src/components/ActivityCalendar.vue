@@ -273,4 +273,68 @@ onMounted(async () => {
 .legend-box.level-4 {
   background: #667eea;
 }
+
+@media (max-width: 768px) {
+  .activity-calendar {
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
+  }
+
+  .activity-calendar h3 {
+    font-size: 1.3rem;
+    margin-bottom: 1rem;
+  }
+
+  .calendar-container {
+    gap: 1rem;
+  }
+
+  .stats-summary {
+    gap: 1.5rem;
+  }
+
+  .stat-value {
+    font-size: 1.5rem;
+  }
+
+  .stat-label {
+    font-size: 0.75rem;
+  }
+
+  .calendar-grid {
+    grid-template-columns: repeat(7, 1fr);
+    gap: 0.3rem;
+  }
+
+  .calendar-day {
+    padding: 0.1rem;
+  }
+
+  .day-label {
+    font-size: 0.55rem;
+  }
+
+  .day-date {
+    font-size: 0.7rem;
+  }
+
+  .day-count {
+    font-size: 0.55rem;
+    top: 1px;
+    right: 2px;
+    padding: 0 2px;
+    min-width: 12px;
+  }
+
+  .legend {
+    gap: 0.3rem;
+    font-size: 0.7rem;
+  }
+
+  .legend-box {
+    width: 14px;
+    height: 14px;
+  }
+}
 </style>

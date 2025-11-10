@@ -189,7 +189,7 @@ async function startGame() {
 
 .public-stats {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   gap: 2rem;
   max-width: 1200px;
   margin: 0 auto;
@@ -199,6 +199,32 @@ async function startGame() {
 @media (max-width: 768px) {
   .public-stats {
     grid-template-columns: 1fr;
+    gap: 1.5rem;
+    padding: 0 1rem;
+    justify-items: center;
+  }
+
+  .hero {
+    padding: 2rem 1rem;
+  }
+
+  .hero-title {
+    font-size: 2rem;
+  }
+
+  .hero-subtitle {
+    font-size: 1.2rem;
+  }
+
+  .hero-actions {
+    flex-direction: column;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .hero-actions .btn {
+    width: 100%;
+    max-width: 300px;
   }
 }
 
