@@ -197,4 +197,30 @@ async function handleLogout() {
   color: #6c757d;
   font-size: 0.875rem;
 }
+
+/* Mobile optimizations */
+@media (max-width: 768px) {
+  .app-header {
+    padding: 1rem 1.5rem;
+  }
+
+  .logo-link {
+    display: none;
+  }
+
+  .user-info {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .user-greeting {
+    font-size: 0.9rem;
+    padding: 0.4rem 0.8rem;
+  }
+
+  .btn-logout {
+    padding: 0.5rem 1.2rem;
+    font-size: 0.8rem;
+  }
+}
 </style>
