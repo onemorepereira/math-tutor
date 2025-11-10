@@ -21,9 +21,16 @@ Parameters:
     Default: ""
     Description: "Optional: ACM Certificate ARN for custom domain (must be in us-east-1)"
 
+  # Optional: Custom API domain pattern for CSP
+  ApiDomainPattern:
+    Type: String
+    Default: ""
+    Description: "Optional: Custom API domain pattern for CSP (e.g., *.example.com or https://*.example.com)"
+
 Conditions:
   HasDomain: !Not [!Equals [!Ref DomainName, ""]]
   HasCertificate: !Not [!Equals [!Ref CertificateArn, ""]]
+  HasApiDomain: !Not [!Equals [!Ref ApiDomainPattern, ""]]
 
 Resources:
   # S3 Bucket for Frontend
@@ -75,6 +82,35 @@ Resources:
         SigningBehavior: always
         SigningProtocol: sigv4
 
+  # WAF Web ACL for Geo-Restriction
+  WebACL:
+    Type: AWS::WAFv2::WebACL
+    Properties:
+      Name: !Sub math-tutor-geo-restriction-${Environment}
+      Scope: CLOUDFRONT
+      Description: Restrict access to US, Argentina, and Egypt only
+      DefaultAction:
+        Block: {}
+      Rules:
+        - Name: AllowedCountriesRule
+          Priority: 0
+          Statement:
+            GeoMatchStatement:
+              CountryCodes:
+                - US  # United States
+                - AR  # Argentina
+                - EG  # Egypt
+          Action:
+            Allow: {}
+          VisibilityConfig:
+            SampledRequestsEnabled: true
+            CloudWatchMetricsEnabled: true
+            MetricName: AllowedCountriesRule
+      VisibilityConfig:
+        SampledRequestsEnabled: true
+        CloudWatchMetricsEnabled: true
+        MetricName: !Sub math-tutor-geo-restriction-${Environment}
+
   # CloudFront Distribution
   CloudFrontDistribution:
     Type: AWS::CloudFront::Distribution
@@ -85,6 +121,7 @@ Resources:
         Comment: !Sub Math Tutor Frontend - ${Environment}
         DefaultRootObject: index.html
         PriceClass: PriceClass_100  # Use only North America and Europe (cheapest)
+        WebACLId: !GetAtt WebACL.Arn
 
         # Domain configuration (optional)
         Aliases: !If
@@ -173,7 +210,9 @@ Resources:
 
           # Content Security Policy
           ContentSecurityPolicy:
-            ContentSecurityPolicy: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' https://*.amazonaws.com; frame-ancestors 'none';"
+            ContentSecurityPolicy: !Sub
+              - "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' https://*.amazonaws.com${ApiDomain}; frame-ancestors 'none';"
+              - ApiDomain: !If [HasApiDomain, !Sub " https://${ApiDomainPattern}", ""]
             Override: true
 
 Outputs:

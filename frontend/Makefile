@@ -54,12 +54,27 @@ build: get-backend-config ## Build the frontend application
 
 deploy-infrastructure: ## Deploy/update CloudFormation infrastructure (S3 + CloudFront)
 	@echo "$(GREEN)Deploying frontend infrastructure...$(NC)"
-	@cd .. && aws cloudformation deploy \
-		--template-file frontend-infrastructure.yaml \
-		--stack-name "$(FRONTEND_STACK_NAME)" \
-		--parameter-overrides Environment=$(ENV) \
-		--region $(REGION) \
-		--no-fail-on-empty-changeset
+	@if [ -f .env.cloudformation ]; then \
+		set -a && . ./.env.cloudformation && set +a && \
+		cd .. && aws cloudformation deploy \
+			--template-file frontend-infrastructure.yaml \
+			--stack-name "$(FRONTEND_STACK_NAME)" \
+			--parameter-overrides \
+				Environment=$(ENV) \
+				DomainName=$${DOMAIN_NAME} \
+				CertificateArn=$${CERTIFICATE_ARN} \
+				ApiDomainPattern=$${API_DOMAIN_PATTERN} \
+			--region $(REGION) \
+			--no-fail-on-empty-changeset; \
+	else \
+		echo "$(YELLOW)Warning: .env.cloudformation not found. Deploying without custom domain.$(NC)"; \
+		cd .. && aws cloudformation deploy \
+			--template-file frontend-infrastructure.yaml \
+			--stack-name "$(FRONTEND_STACK_NAME)" \
+			--parameter-overrides Environment=$(ENV) \
+			--region $(REGION) \
+			--no-fail-on-empty-changeset; \
+	fi
 	@echo "$(GREEN)✓ Infrastructure deployed$(NC)"
 
 upload: ## Upload built files to S3
