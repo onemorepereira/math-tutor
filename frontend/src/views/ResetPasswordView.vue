@@ -1,0 +1,264 @@
+<template>
+  <div class="reset-password-view">
+    <div class="auth-card card">
+      <h2>Reset Your Password</h2>
+      <p class="subtitle">
+        Enter the verification code sent to <strong>{{ email }}</strong>
+      </p>
+
+      <div v-if="error" class="error-message">{{ error }}</div>
+      <div v-if="successMessage" class="success-message">{{ successMessage }}</div>
+
+      <form @submit.prevent="handleReset">
+        <div class="form-group">
+          <label for="code">Verification Code</label>
+          <input
+            id="code"
+            v-model="code"
+            type="text"
+            required
+            placeholder="Enter 6-digit code"
+            maxlength="6"
+            pattern="[0-9]{6}"
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="newPassword">New Password</label>
+          <input
+            id="newPassword"
+            v-model="newPassword"
+            type="password"
+            required
+            minlength="8"
+            placeholder="Minimum 8 characters"
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="confirmPassword">Confirm Password</label>
+          <input
+            id="confirmPassword"
+            v-model="confirmPassword"
+            type="password"
+            required
+            placeholder="Re-enter password"
+          />
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-block" :disabled="isLoading">
+          {{ isLoading ? 'Resetting...' : 'Reset Password' }}
+        </button>
+      </form>
+
+      <div class="resend-section">
+        <p>Didn't receive the code?</p>
+        <button
+          type="button"
+          class="btn-link"
+          @click="handleResend"
+          :disabled="isResending || cooldownActive"
+        >
+          {{ isResending ? 'Sending...' : cooldownActive ? `Resend (${cooldownSeconds}s)` : 'Resend Code' }}
+        </button>
+      </div>
+
+      <p class="auth-link">
+        <router-link to="/login">Back to Login</router-link>
+      </p>
+    </div>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref, onMounted } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
+
+const router = useRouter()
+const route = useRoute()
+const authStore = useAuthStore()
+
+const email = ref('')
+const code = ref('')
+const newPassword = ref('')
+const confirmPassword = ref('')
+const error = ref<string | null>(null)
+const successMessage = ref<string | null>(null)
+const isLoading = ref(false)
+const isResending = ref(false)
+const cooldownActive = ref(false)
+const cooldownSeconds = ref(0)
+
+onMounted(() => {
+  email.value = route.query.email as string || ''
+
+  if (!email.value) {
+    router.push({ name: 'forgot-password' })
+  }
+})
+
+async function handleReset() {
+  error.value = null
+  successMessage.value = null
+
+  if (code.value.length !== 6) {
+    error.value = 'Please enter a valid 6-digit code'
+    return
+  }
+
+  if (newPassword.value !== confirmPassword.value) {
+    error.value = 'Passwords do not match'
+    return
+  }
+
+  if (newPassword.value.length < 8) {
+    error.value = 'Password must be at least 8 characters'
+    return
+  }
+
+  try {
+    isLoading.value = true
+    await authStore.confirmPasswordReset(email.value, code.value, newPassword.value)
+    successMessage.value = 'Password reset successful! Redirecting to login...'
+
+    // Redirect to login after 2 seconds
+    setTimeout(() => {
+      router.push({ name: 'login' })
+    }, 2000)
+  } catch (err: any) {
+    if (err.message?.includes('Code mismatch') || err.message?.includes('Invalid')) {
+      error.value = 'Invalid verification code. Please try again.'
+    } else if (err.message?.includes('expired')) {
+      error.value = 'Verification code has expired. Please request a new one.'
+    } else if (err.message?.includes('password')) {
+      error.value = 'Password does not meet requirements. Must be at least 8 characters with uppercase, lowercase, and numbers.'
+    } else {
+      error.value = err.message || 'Password reset failed. Please try again.'
+    }
+  } finally {
+    isLoading.value = false
+  }
+}
+
+async function handleResend() {
+  error.value = null
+  successMessage.value = null
+
+  try {
+    isResending.value = true
+    await authStore.forgotPassword(email.value)
+    successMessage.value = 'Verification code sent! Check your email.'
+
+    // Start 60-second cooldown
+    cooldownActive.value = true
+    cooldownSeconds.value = 60
+    const interval = setInterval(() => {
+      cooldownSeconds.value--
+      if (cooldownSeconds.value <= 0) {
+        cooldownActive.value = false
+        clearInterval(interval)
+      }
+    }, 1000)
+  } catch (err: any) {
+    error.value = err.message || 'Failed to resend code. Please try again.'
+  } finally {
+    isResending.value = false
+  }
+}
+</script>
+
+<style scoped>
+.reset-password-view {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: calc(100vh - 200px);
+  padding: 2rem;
+}
+
+.auth-card {
+  max-width: 450px;
+  width: 100%;
+}
+
+.auth-card h2 {
+  text-align: center;
+  margin-bottom: 0.5rem;
+  color: #333;
+}
+
+.subtitle {
+  text-align: center;
+  color: #6c757d;
+  margin-bottom: 2rem;
+  line-height: 1.5;
+}
+
+.subtitle strong {
+  color: #333;
+}
+
+.btn-block {
+  width: 100%;
+}
+
+.resend-section {
+  text-align: center;
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #e9ecef;
+}
+
+.resend-section p {
+  color: #6c757d;
+  margin-bottom: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.btn-link {
+  background: none;
+  border: none;
+  color: #667eea;
+  cursor: pointer;
+  font-size: 0.95rem;
+  font-weight: 500;
+  padding: 0.5rem 1rem;
+  transition: color 0.2s;
+}
+
+.btn-link:hover:not(:disabled) {
+  color: #5568d3;
+  text-decoration: underline;
+}
+
+.btn-link:disabled {
+  color: #adb5bd;
+  cursor: not-allowed;
+}
+
+.auth-link {
+  text-align: center;
+  margin-top: 1.5rem;
+  color: #6c757d;
+}
+
+.auth-link a {
+  color: #667eea;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.auth-link a:hover {
+  text-decoration: underline;
+}
+
+.success-message {
+  background-color: #d4edda;
+  color: #155724;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  border: 1px solid #c3e6cb;
+}
+</style>
