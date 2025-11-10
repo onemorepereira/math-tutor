@@ -228,7 +228,7 @@ function goHome() {
 
 .score-circle {
   display: inline-flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: center;
   width: 200px;
   height: 200px;
