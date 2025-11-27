@@ -1,8 +1,8 @@
 <template>
   <div class="home-view">
     <div v-if="!isAuthenticated" class="hero">
-      <h1 class="hero-title">Welcome to Math Tutor!</h1>
-      <p class="hero-subtitle">Learn math the fun way with AI-powered tutoring</p>
+      <h1 class="hero-title">Welcome to Number Ninja!</h1>
+      <p class="hero-subtitle">Master math like a ninja with AI-powered training</p>
       <div class="hero-actions">
         <router-link to="/register" class="btn btn-primary">Get Started</router-link>
         <router-link to="/login" class="btn btn-secondary">Login</router-link>

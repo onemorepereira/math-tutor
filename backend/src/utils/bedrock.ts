@@ -64,6 +64,7 @@ For each problem, provide:
 2. The correct answer
 3. A topic/category
 4. Maximum points (between 5-20 based on difficulty)
+5. Answer type: "numeric" if the answer is a number (including decimals/negatives), "text" if it's a word or phrase
 
 Format your response as a JSON array with this structure:
 [
@@ -71,7 +72,15 @@ Format your response as a JSON array with this structure:
     "question": "What is 15 + 27?",
     "correctAnswer": "42",
     "topic": "Addition",
-    "maxPoints": 10
+    "maxPoints": 10,
+    "answerType": "numeric"
+  },
+  {
+    "question": "In the pattern: rose, tulip, daisy, rose, tulip, daisy... what is the 7th item?",
+    "correctAnswer": "rose",
+    "topic": "Number Patterns",
+    "maxPoints": 15,
+    "answerType": "text"
   }
 ]
 

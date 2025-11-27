@@ -441,4 +441,183 @@ function goHome() {
   justify-content: center;
   margin-top: 2rem;
 }
+
+/* Mobile optimizations */
+@media (max-width: 768px) {
+  .scorecard-view {
+    padding: 1rem 0.75rem;
+  }
+
+  .scorecard-container {
+    gap: 1.5rem;
+  }
+
+  .scorecard-header {
+    padding: 1.5rem 1rem;
+  }
+
+  .scorecard-header h1 {
+    font-size: 1.75rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .score-circle {
+    width: 150px;
+    height: 150px;
+    padding: 1.5rem;
+  }
+
+  .score-value {
+    font-size: 2.75rem;
+  }
+
+  .score-max {
+    font-size: 1.1rem;
+  }
+
+  .score-label {
+    font-size: 1rem;
+  }
+
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+    margin: 1.5rem 0;
+  }
+
+  .stat-item .stat-value {
+    font-size: 1.5rem;
+  }
+
+  .stat-item .stat-label {
+    font-size: 0.8rem;
+  }
+
+  .score-message {
+    margin-top: 1.5rem;
+    padding: 0.875rem;
+  }
+
+  .score-message p {
+    font-size: 1rem;
+  }
+
+  .review-section {
+    margin-top: 1rem;
+  }
+
+  .review-section h2 {
+    font-size: 1.25rem;
+  }
+
+  .review-intro {
+    font-size: 0.9rem;
+    margin-bottom: 1rem;
+  }
+
+  .problem-item {
+    padding: 1rem;
+  }
+
+  .problem-item:hover {
+    transform: none;
+  }
+
+  .problem-header h3 {
+    font-size: 1rem;
+  }
+
+  .detail-row {
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .detail-row .label {
+    min-width: unset;
+    font-size: 0.8rem;
+  }
+
+  .detail-row .value {
+    font-size: 0.95rem;
+  }
+
+  .explanation-section {
+    margin-top: 1rem;
+    padding-top: 1rem;
+  }
+
+  .explanation-content {
+    gap: 1rem;
+  }
+
+  .explanation-content h4 {
+    font-size: 1rem;
+  }
+
+  .explanation-content h5 {
+    font-size: 0.9rem;
+  }
+
+  .explanation-text,
+  .insight-text {
+    font-size: 0.95rem;
+  }
+
+  .steps-section,
+  .insight-section {
+    padding: 0.875rem;
+  }
+
+  .steps-list {
+    font-size: 0.9rem;
+    margin-left: 1.25rem;
+  }
+
+  .actions-section {
+    flex-direction: column;
+    margin-top: 1.5rem;
+  }
+
+  .actions-section .btn {
+    width: 100%;
+    padding: 0.875rem;
+    font-size: 1rem;
+  }
+
+  .loading {
+    padding: 2rem;
+    font-size: 1rem;
+  }
+}
+
+@media (max-width: 380px) {
+  .scorecard-view {
+    padding: 0.75rem 0.5rem;
+  }
+
+  .scorecard-header {
+    padding: 1.25rem 0.875rem;
+  }
+
+  .scorecard-header h1 {
+    font-size: 1.5rem;
+  }
+
+  .score-circle {
+    width: 130px;
+    height: 130px;
+  }
+
+  .score-value {
+    font-size: 2.25rem;
+  }
+
+  .stats-grid {
+    gap: 0.75rem;
+  }
+
+  .stat-item .stat-value {
+    font-size: 1.25rem;
+  }
+}
 </style>
