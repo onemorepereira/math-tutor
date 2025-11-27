@@ -1,98 +1,204 @@
-# Math Tutor - AI-Powered Math Learning Game
+# Number Ninja - Master Math Like a Ninja!
 
-An interactive, web-based math tutoring application powered by Amazon Bedrock Nova models. Students solve math problems, receive intelligent hints, and get age-appropriate explanations.
+An AI-powered math practice app for kids featuring adaptive difficulty, intelligent hints, and personalized learning through Amazon Bedrock Nova.
 
 ## Features
 
 - **AI-Generated Problems**: Amazon Bedrock Nova dynamically generates math problems tailored to difficulty levels
-- **Intelligent Hints**: Up to 2 hints per problem (5 points deducted per hint)
-- **Time Tracking**: Records time spent on each problem
+- **Intelligent Hints**: Up to 2 hints per problem with progressive guidance
+- **Dynamic Input**: Smart keyboard switching (numeric/text) based on answer type
 - **Adaptive Difficulty**: Supports Elementary, Middle School, and High School levels
 - **Detailed Scorecard**: Review performance and learn from mistakes
 - **Age-Appropriate Explanations**: AI-generated solution explanations matched to student age
 - **Anonymous Identity**: Child-friendly randomly generated screen names
 - **User Authentication**: Secure email-based registration via AWS Cognito
-- **Public Leaderboard**: Global leaderboard and activity heatmap
-- **Signup Control**: Ability to enable/disable new user signups
+- **Public Leaderboard**: Global leaderboard showing "Top 10 Ninjas"
+- **Mobile Optimized**: Responsive design with touch-friendly controls
+- **Modern UI**: Bangers font styling for engaging, kid-friendly interface
 
-## Architecture
+## Architecture Overview
+
+```mermaid
+flowchart TB
+    subgraph Client["Client Layer"]
+        Browser["Browser"]
+        Vue["Vue.js 3 SPA<br/>TypeScript + Pinia"]
+    end
+
+    subgraph CDN["Content Delivery"]
+        CF["CloudFront CDN"]
+        S3["S3 Bucket<br/>(Static Assets)"]
+    end
+
+    subgraph API["API Layer"]
+        APIGW["API Gateway<br/>(REST API)"]
+        Auth["Cognito Authorizer"]
+    end
+
+    subgraph Compute["Compute Layer"]
+        Lambda1["RegisterUser"]
+        Lambda2["GetUserProfile"]
+        Lambda3["CreateGameSession"]
+        Lambda4["RequestHint"]
+        Lambda5["SubmitAnswer"]
+        Lambda6["EndGameSession"]
+        Lambda7["GetExplanation"]
+        Lambda8["GetLeaderboard"]
+    end
+
+    subgraph Data["Data Layer"]
+        DDB[("DynamoDB<br/>Users & Sessions")]
+    end
+
+    subgraph AI["AI Layer"]
+        Bedrock["Amazon Bedrock<br/>Nova Lite"]
+    end
+
+    subgraph Auth_Service["Authentication"]
+        Cognito["Cognito User Pools"]
+    end
+
+    Browser --> CF
+    CF --> S3
+    Vue --> APIGW
+    APIGW --> Auth
+    Auth --> Cognito
+    APIGW --> Lambda1 & Lambda2 & Lambda3 & Lambda4 & Lambda5 & Lambda6 & Lambda7 & Lambda8
+    Lambda1 & Lambda2 & Lambda3 & Lambda5 & Lambda6 & Lambda8 --> DDB
+    Lambda3 & Lambda4 & Lambda7 --> Bedrock
+```
+
+## Game Flow
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant FE as Frontend
+    participant API as API Gateway
+    participant Lambda as Lambda
+    participant Bedrock as Bedrock Nova
+    participant DB as DynamoDB
+
+    U->>FE: Select Difficulty
+    FE->>API: POST /game/sessions
+    API->>Lambda: CreateGameSession
+    Lambda->>Bedrock: Generate 10 Problems
+    Bedrock-->>Lambda: Problems JSON
+    Lambda->>DB: Store Session
+    Lambda-->>FE: Session + Problems
+
+    loop Each Problem (1-10)
+        FE->>U: Display Problem
+
+        opt Request Hint
+            U->>FE: Click Hint
+            FE->>API: POST /hints
+            API->>Lambda: RequestHint
+            Lambda->>Bedrock: Generate Hint
+            Bedrock-->>Lambda: Hint Text
+            Lambda-->>FE: Hint (-5 points)
+        end
+
+        U->>FE: Submit Answer
+        FE->>API: POST /submit
+        API->>Lambda: SubmitAnswer
+        Lambda->>DB: Record Attempt
+        Lambda-->>FE: Result + Points
+    end
+
+    FE->>API: POST /end
+    API->>Lambda: EndGameSession
+    Lambda->>DB: Update Stats
+    Lambda-->>FE: Final Scorecard
+```
+
+## Technology Stack
 
 ### Frontend
-- **Framework**: Vue.js 3 with TypeScript and Composition API
-- **Build Tool**: Vite
-- **State Management**: Pinia
-- **Authentication**: Amazon Cognito Identity SDK
-- **Hosting**: Amazon S3 + CloudFront
-- **Deployment**: Automated via Makefile
+| Technology | Purpose |
+|------------|---------|
+| Vue.js 3 | Framework with Composition API |
+| TypeScript | Type safety |
+| Vite | Build tool |
+| Pinia | State management |
+| Vue Router | Navigation |
+| Axios | HTTP client |
+| Cognito SDK | Authentication |
 
 ### Backend
-- **Runtime**: AWS Lambda (Node.js 22.x)
-- **API**: Amazon API Gateway with Cognito Authorizer
-- **Database**: Amazon DynamoDB (Pay-per-request)
-- **AI/ML**: Amazon Bedrock Nova Lite
-- **Authentication**: Amazon Cognito User Pools
-- **Infrastructure**: AWS SAM (Serverless Application Model)
-- **Cache**: DynamoDB TTL for public stats caching
+| Technology | Purpose |
+|------------|---------|
+| AWS Lambda | Serverless compute (Node.js 22.x) |
+| API Gateway | REST API with CORS |
+| DynamoDB | NoSQL database |
+| Bedrock Nova | AI problem/hint generation |
+| Cognito | User authentication |
+| AWS SAM | Infrastructure as Code |
 
 ## Project Structure
 
 ```
-math-tutor/
+number-ninja/
 ├── frontend/                      # Vue.js frontend application
 │   ├── src/
-│   │   ├── components/           # Vue components
+│   │   ├── components/           # Reusable Vue components
+│   │   │   └── Leaderboard.vue   # Top 10 Ninjas display
 │   │   ├── views/                # Page views
+│   │   │   ├── HomeView.vue      # Landing page
+│   │   │   ├── LoginView.vue     # Authentication
+│   │   │   ├── GameView.vue      # Main game interface
+│   │   │   ├── ScorecardView.vue # Results display
+│   │   │   └── StatsView.vue     # User statistics
 │   │   ├── stores/               # Pinia state stores
 │   │   ├── services/             # API service layer
-│   │   ├── types/                # TypeScript types
-│   │   └── router/               # Vue Router configuration
-│   ├── Makefile                  # Frontend deployment automation
+│   │   └── types/                # TypeScript definitions
+│   ├── Makefile                  # Deployment automation
 │   └── package.json
 ├── backend/                       # Lambda functions
 │   ├── src/
 │   │   ├── functions/            # Lambda handlers
-│   │   └── utils/                # Shared utilities
-│   ├── Makefile                  # Backend build targets
+│   │   └── utils/
+│   │       ├── bedrock.ts        # AI integration
+│   │       ├── dynamodb.ts       # Database client
+│   │       └── usernameGenerator.ts
 │   └── package.json
-├── Makefile                       # Root Makefile (backend operations)
-├── template.yaml                  # AWS SAM template (backend)
-├── frontend-infrastructure.yaml   # CloudFormation template (frontend)
-└── Documentation/
-    ├── README.md                  # This file
-    ├── DEPLOYMENT.md              # Detailed deployment guide
-    ├── ARCHITECTURE.md            # Architecture details
-    ├── FRONTEND-HOSTING.md        # Frontend hosting guide
+├── template.yaml                  # AWS SAM template
+├── frontend-infrastructure.yaml   # CloudFront + S3
+└── docs/                          # Documentation
+    ├── ARCHITECTURE.md            # System architecture
+    ├── DEPLOYMENT.md              # Deployment guide
+    ├── FRONTEND-HOSTING.md        # S3 + CloudFront hosting
     ├── SIGNUP-CONTROL.md          # Signup control feature
-    └── frontend/MAKEFILE-GUIDE.md # Frontend Makefile reference
+    ├── MAKEFILE-GUIDE.md          # Frontend build commands
+    ├── CLEANUP.md                 # Destruction guide
+    ├── GIT-GUIDELINES.md          # Git best practices
+    ├── QUICK-REFERENCE.md         # Command cheat sheet
+    └── PROJECT_SUMMARY.md         # Project summary
 ```
 
 ## Quick Start
 
 ### Prerequisites
 - Node.js 22.x or later
-- AWS Account with:
-  - Amazon Bedrock access (Nova Lite model enabled)
-  - AWS SAM CLI installed
-  - AWS CLI configured with credentials
-- npm package manager
+- AWS Account with Bedrock access (Nova Lite model)
+- AWS SAM CLI installed
+- AWS CLI configured
 
 ### 1. Enable Amazon Bedrock
-1. Go to AWS Console → Amazon Bedrock
-2. Navigate to "Model access"
-3. Request access to "Amazon Nova Lite" model
-4. Wait for approval (usually instant)
+
+```bash
+# Go to AWS Console → Amazon Bedrock → Model access
+# Request access to "Amazon Nova Lite" model
+```
 
 ### 2. Deploy Backend
 
 ```bash
 # From project root
-make deploy
-
-# Or manually:
 sam build && sam deploy --guided
 ```
 
-Save the output values: `ApiUrl`, `UserPoolId`, `UserPoolClientId`
+Save the outputs: `ApiUrl`, `UserPoolId`, `UserPoolClientId`
 
 ### 3. Deploy Frontend
 
@@ -101,116 +207,94 @@ cd frontend
 make deploy
 ```
 
-The frontend Makefile will:
-- Automatically fetch backend configuration
-- Build the Vue.js app
-- Deploy CloudFormation infrastructure (S3 + CloudFront)
-- Upload files
-- Invalidate CloudFront cache
+Your app is now live at the CloudFront URL!
 
-Your application is now live at the CloudFront URL shown in the output!
+## Development
 
-## Development Workflow
-
-### Backend Development
+### Local Development
 
 ```bash
-# Build backend
-make build
-
-# Deploy changes
-make deploy
-
-# Check status
-make status
-
-# View outputs
-make outputs
-
-# Check signup status
-make check-signups
-```
-
-### Frontend Development
-
-```bash
+# Frontend
 cd frontend
+npm run dev
 
-# Local development
-make dev
-
-# Quick deployment (code changes only)
-make quick-deploy
-
-# Full deployment (infrastructure + code)
-make deploy
-
-# Check deployment info
-make outputs
+# Access at http://localhost:3000
 ```
 
-## Key Features & Documentation
-
-### Signup Control
-Control new user registrations with a single command:
+### Deployment Commands
 
 ```bash
-# Disable new signups
-make disable-signups
+# Backend
+sam build && sam deploy
 
-# Enable new signups
-make enable-signups
-
-# Check current status
-make check-signups
+# Frontend (production)
+cd frontend
+ENV=prod make build && ENV=prod make upload && ENV=prod make invalidate
 ```
 
-See [SIGNUP-CONTROL.md](SIGNUP-CONTROL.md) for details.
+## Database Schema
 
-### Frontend Deployment
-Frontend is hosted on S3 + CloudFront with:
-- HTTPS enforcement
-- Security headers (CSP, HSTS, XSS Protection)
-- SPA routing support
-- Aggressive caching for assets
-- Cost-optimized (PriceClass_100)
+```mermaid
+erDiagram
+    USERS {
+        string userId PK
+        string cognitoId UK
+        string email
+        string screenName
+        string ageGroup
+        number gamesPlayed
+        number totalScore
+        timestamp createdAt
+    }
 
-See [FRONTEND-HOSTING.md](FRONTEND-HOSTING.md) and [frontend/MAKEFILE-GUIDE.md](frontend/MAKEFILE-GUIDE.md) for details.
+    GAME_SESSIONS {
+        string sessionId PK
+        string odUserId FK
+        string difficulty
+        array problems
+        array attempts
+        number totalScore
+        number totalTimeSeconds
+        boolean isCompleted
+        timestamp startTime
+        timestamp endTime
+    }
 
-### Architecture
-Detailed architecture documentation including:
-- System design
-- Data flow
-- Security model
-- API design
+    USERS ||--o{ GAME_SESSIONS : plays
+```
 
-See [ARCHITECTURE.md](ARCHITECTURE.md) for details.
+## Authentication Flow
 
-## Game Mechanics
+```mermaid
+flowchart LR
+    subgraph Registration
+        R1[User submits form] --> R2[Cognito creates user]
+        R2 --> R3[Email verification]
+        R3 --> R4[Lambda creates profile]
+        R4 --> R5[DynamoDB stores user]
+    end
 
-### Scoring System
-- Each problem: 5-20 points (based on difficulty)
-- Each hint: -5 points from potential score
-- Wrong answers: 0 points
-- Time tracked but doesn't affect score
+    subgraph Login
+        L1[User enters credentials] --> L2[Cognito authenticates]
+        L2 --> L3[JWT tokens returned]
+        L3 --> L4[Frontend stores tokens]
+    end
 
-### Difficulty Levels
+    subgraph API Access
+        A1[Request with JWT] --> A2[API Gateway validates]
+        A2 --> A3[Cognito Authorizer]
+        A3 --> A4[Lambda receives claims]
+    end
+```
 
-**Elementary (Ages 6-10)**
-- Basic arithmetic (addition, subtraction)
-- Simple multiplication and division
-- Number patterns
+## Scoring System
 
-**Middle School (Ages 11-14)**
-- Fractions and decimals
-- Percentages
-- Pre-algebra
-- Basic geometry
-
-**High School (Ages 15-18)**
-- Algebra and equations
-- Geometry and trigonometry
-- Advanced problem solving
+| Factor | Points |
+|--------|--------|
+| Correct answer | 5-20 (based on difficulty) |
+| Per hint used | -5 points |
+| Wrong answer | 0 points |
+| Time tracked | No penalty |
 
 ## API Endpoints
 
@@ -218,131 +302,65 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for details.
 |--------|----------|------|-------------|
 | POST | `/api/users/register` | No | Register new user |
 | GET | `/api/users/profile` | Yes | Get user profile |
-| GET | `/api/users/sessions` | Yes | Get user's game sessions |
-| POST | `/api/game/sessions` | Yes | Create new game session |
+| GET | `/api/users/sessions` | Yes | Get user's sessions |
+| POST | `/api/game/sessions` | Yes | Create game session |
 | POST | `/api/game/sessions/{id}/problems/{id}/hints` | Yes | Request hint |
 | POST | `/api/game/sessions/{id}/problems/{id}/submit` | Yes | Submit answer |
-| POST | `/api/game/sessions/{id}/end` | Yes | End game session |
-| GET | `/api/game/sessions/{id}/problems/{id}/explanation` | Yes | Get solution explanation |
-| GET | `/api/public/leaderboard` | No | Get public leaderboard |
-| GET | `/api/public/activity` | No | Get activity stats |
+| POST | `/api/game/sessions/{id}/end` | Yes | End session |
+| GET | `/api/game/sessions/{id}/problems/{id}/explanation` | Yes | Get explanation |
+| GET | `/api/public/leaderboard` | No | Top 10 Ninjas |
+| GET | `/api/public/activity` | No | Activity stats |
 
 ## Cost Estimation
 
-### AWS Services
-- **Lambda**: Pay per request (generous free tier)
-- **DynamoDB**: On-demand pricing (free tier available)
-- **API Gateway**: Pay per API call
-- **Cognito**: Free for up to 50,000 MAUs
-- **Bedrock Nova Lite**: ~$0.00006 per 1K input tokens, ~$0.00024 per 1K output tokens
-- **S3**: Minimal storage costs
-- **CloudFront**: PriceClass_100 (cheapest option)
+| Service | Pricing |
+|---------|---------|
+| Lambda | Pay per request (free tier) |
+| DynamoDB | On-demand (free tier) |
+| API Gateway | Pay per API call |
+| Cognito | Free under 50K MAUs |
+| Bedrock Nova | ~$0.00006/1K input tokens |
+| S3 | Minimal storage |
+| CloudFront | PriceClass_100 |
 
-**Estimated Cost**: For moderate usage (100 games/day), expect ~$5-15/month
+**Estimated**: ~$5-15/month for 100 games/day
 
-## Security Features
+## Security
 
 - HTTPS only (TLS 1.2+)
 - Content Security Policy (CSP)
-- Strict Transport Security (HSTS)
-- XSS Protection headers
-- Private S3 bucket (Origin Access Control)
-- Cognito authentication for protected endpoints
-- Input validation on all API endpoints
-- Rate limiting via API Gateway
+- HSTS headers
+- Private S3 with Origin Access Control
+- Cognito JWT authentication
+- Input validation
+- Rate limiting
 
-## Monitoring
-
-### CloudWatch Logs
-```bash
-# Backend
-make logs
-
-# View specific function
-sam logs -n CreateGameSessionFunction --tail
-```
-
-### CloudFront Status
-```bash
-cd frontend
-make logs
-```
-
-### Check Infrastructure Status
-```bash
-# Backend
-make status
-
-# Frontend
-cd frontend && make status
-```
-
-## Cleanup / Destruction
-
-To completely remove all infrastructure:
+## Cleanup
 
 ```bash
-# Destroy frontend (S3 + CloudFront)
-cd frontend
-make destroy
+# Destroy frontend
+cd frontend && make destroy
 
-# Destroy backend (Lambda, API Gateway, DynamoDB, Cognito)
-cd ..
+# Destroy backend
 make destroy
 ```
 
-**Warning**: This permanently deletes all data and cannot be undone!
-
-See [CLEANUP.md](CLEANUP.md) for detailed cleanup instructions.
-
-## Troubleshooting
-
-### Bedrock Access Denied
-- Ensure Nova Lite model access is enabled in Bedrock console
-- Verify Lambda execution role has `bedrock:InvokeModel` permission
-
-### CORS Errors
-- Check that API URL in frontend matches deployed API Gateway URL
-- Verify CORS headers are properly configured
-
-### Cognito Authentication Fails
-- Verify User Pool ID and Client ID are correct
-- Check email verification settings
-
-### Frontend Not Updating
-- CloudFront cache may need 1-2 minutes to invalidate
-- Hard refresh browser (Ctrl+Shift+R)
-- Check invalidation status: `cd frontend && make check-invalidation`
-
-## Future Enhancements
-
-- [ ] Progress tracking and historical performance analytics
-- [ ] Multiplayer competitions and tournaments
-- [ ] Additional subject areas (science, vocabulary)
-- [ ] Parent/teacher dashboard
-- [ ] Custom problem sets
-- [ ] Achievement badges and rewards
-- [ ] Mobile app (React Native)
+**Warning**: This permanently deletes all data!
 
 ## Documentation
 
-- [DEPLOYMENT.md](DEPLOYMENT.md) - Detailed deployment guide
-- [ARCHITECTURE.md](ARCHITECTURE.md) - System architecture
-- [FRONTEND-HOSTING.md](FRONTEND-HOSTING.md) - Frontend hosting details
-- [SIGNUP-CONTROL.md](SIGNUP-CONTROL.md) - Signup control feature
-- [frontend/MAKEFILE-GUIDE.md](frontend/MAKEFILE-GUIDE.md) - Frontend Makefile reference
-- [CLEANUP.md](CLEANUP.md) - Infrastructure cleanup guide
-
-## License
-
-MIT License - See LICENSE file for details
+| Document | Description |
+|----------|-------------|
+| [ARCHITECTURE.md](docs/ARCHITECTURE.md) | System architecture with Mermaid diagrams |
+| [DEPLOYMENT.md](docs/DEPLOYMENT.md) | Step-by-step deployment guide |
+| [FRONTEND-HOSTING.md](docs/FRONTEND-HOSTING.md) | S3 + CloudFront hosting details |
+| [SIGNUP-CONTROL.md](docs/SIGNUP-CONTROL.md) | User signup enable/disable feature |
+| [MAKEFILE-GUIDE.md](docs/MAKEFILE-GUIDE.md) | Frontend Makefile reference |
+| [CLEANUP.md](docs/CLEANUP.md) | Infrastructure destruction guide |
+| [GIT-GUIDELINES.md](docs/GIT-GUIDELINES.md) | Version control best practices |
+| [QUICK-REFERENCE.md](docs/QUICK-REFERENCE.md) | Command cheat sheet |
+| [PROJECT_SUMMARY.md](docs/PROJECT_SUMMARY.md) | Project summary and file structure |
 
 ## Author
 
 **Miguel Pereira**
-
-Copyright © 2025 Miguel Pereira. All rights reserved.
-
-## Support
-
-For issues and questions, please open an issue on GitHub.

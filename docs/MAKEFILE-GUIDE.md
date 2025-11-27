@@ -1,6 +1,6 @@
 # Frontend Makefile Guide
 
-Quick reference for deploying and managing the Math Tutor frontend.
+Quick reference for deploying and managing the Number Ninja frontend.
 
 ## Quick Start
 
