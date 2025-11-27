@@ -198,10 +198,11 @@ async function startGame() {
 
 @media (max-width: 768px) {
   .public-stats {
-    grid-template-columns: 1fr;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
     gap: 1.5rem;
     padding: 0 1rem;
-    justify-items: center;
   }
 
   .hero {

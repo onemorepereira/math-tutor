@@ -136,9 +136,8 @@ onMounted(async () => {
 
 @media (max-width: 768px) {
   .leaderboard {
-    width: 100%;
-    max-width: 100%;
-    margin: 0;
+    width: 340px;
+    max-width: calc(100vw - 2rem);
   }
 
   .leaderboard h3 {
