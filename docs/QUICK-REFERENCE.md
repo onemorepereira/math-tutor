@@ -1,17 +1,17 @@
-# Math Tutor - Quick Reference Card
+# Number Ninja - Quick Reference Card
 
 ## Documentation Index
 
 | Document | Description |
 |----------|-------------|
-| [README.md](README.md) | Main project overview, features, quick start |
-| [DEPLOYMENT.md](DEPLOYMENT.md) | Detailed step-by-step deployment guide |
+| [README.md](../README.md) | Main project overview, features, quick start |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | System architecture and design |
+| [DEPLOYMENT.md](DEPLOYMENT.md) | Detailed step-by-step deployment guide |
 | [FRONTEND-HOSTING.md](FRONTEND-HOSTING.md) | Frontend S3+CloudFront hosting details |
 | [SIGNUP-CONTROL.md](SIGNUP-CONTROL.md) | User signup enable/disable feature |
-| [frontend/MAKEFILE-GUIDE.md](frontend/MAKEFILE-GUIDE.md) | Frontend Makefile reference |
+| [MAKEFILE-GUIDE.md](MAKEFILE-GUIDE.md) | Frontend Makefile reference |
 | [CLEANUP.md](CLEANUP.md) | Infrastructure destruction guide |
-| [QUICK-REFERENCE.md](QUICK-REFERENCE.md) | This file - quick command reference |
+| [PROJECT_SUMMARY.md](PROJECT_SUMMARY.md) | Project summary and file structure |
 
 ## Essential Commands
 
@@ -81,7 +81,7 @@ make deploy
 ## Directory Structure
 
 ```
-math-tutor/
+number-ninja/
 ├── frontend/                # Vue 3 + TypeScript frontend
 │   ├── src/
 │   ├── Makefile            # Frontend deployment
@@ -90,10 +90,10 @@ math-tutor/
 │   ├── src/
 │   ├── Makefile            # Build targets
 │   └── package.json
+├── docs/                    # Documentation
 ├── Makefile                 # Backend operations
 ├── template.yaml            # SAM template (backend)
-├── frontend-infrastructure.yaml  # CloudFormation (frontend)
-└── *.md                     # Documentation
+└── frontend-infrastructure.yaml  # CloudFormation (frontend)
 ```
 
 ## Tech Stack
@@ -118,11 +118,12 @@ math-tutor/
 - AI-generated math problems (Bedrock Nova)
 - Intelligent hints system
 - Age-appropriate explanations
-- Public leaderboard
+- Public leaderboard (Top 10 Ninjas)
 - Activity heatmap
 - User authentication
 - Signup control
 - Anonymous screen names
+- Mobile-optimized UI
 
 ## API Endpoints
 
@@ -288,7 +289,6 @@ make destroy
 - **Stack events**: `aws cloudformation describe-stack-events --stack-name <stack>`
 - **Lambda logs**: `make logs` or `sam logs -n <FunctionName> --tail`
 - **CloudWatch**: AWS Console → CloudWatch → Log Groups
-- **Issues**: Open an issue on GitHub
 
 ## Version Info
 
@@ -299,9 +299,4 @@ make destroy
 
 ## Author
 
-Miguel Pereira
-Copyright © 2025
-
----
-
-**Quick Access**: For detailed information on any topic, see the document index at the top of this file.
+**Miguel Pereira**

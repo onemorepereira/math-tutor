@@ -70,7 +70,3 @@ See the [Makefile Guide](docs/MAKEFILE-GUIDE.md) for detailed deployment instruc
 ## Environments
 
 - **Production**: https://app.example.com
-
-## License
-
-Private - All rights reserved
