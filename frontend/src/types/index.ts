@@ -20,6 +20,8 @@ export interface User {
   createdAt: string
 }
 
+export type AnswerType = 'numeric' | 'text'
+
 export interface MathProblem {
   id: string
   question: string
@@ -27,6 +29,7 @@ export interface MathProblem {
   difficulty: DifficultyLevel
   topic: string
   maxPoints: number
+  answerType?: AnswerType
 }
 
 export interface Hint {

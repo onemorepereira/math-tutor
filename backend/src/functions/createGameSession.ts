@@ -64,7 +64,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       correctAnswer: p.correctAnswer,
       difficulty,
       topic: p.topic,
-      maxPoints: p.maxPoints
+      maxPoints: p.maxPoints,
+      answerType: p.answerType || 'numeric' // Default to numeric for backwards compatibility
     }))
 
     const sessionId = uuidv4()

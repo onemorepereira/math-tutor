@@ -49,6 +49,7 @@
                 ref="answerInput"
                 v-model="userAnswer"
                 type="text"
+                :inputmode="answerInputMode"
                 placeholder="Enter your answer"
                 @keyup.enter="handleSubmit"
                 :disabled="isSubmitting"
@@ -127,6 +128,11 @@ const isLoading = computed(() => gameStore.isLoading)
 const canRequestHint = computed(() => gameStore.canRequestHint)
 const hintsUsedCount = computed(() => gameStore.hintsUsedCount)
 const hintsReceived = computed(() => gameStore.hintsReceived)
+
+// Dynamic input mode based on answer type
+const answerInputMode = computed(() => {
+  return currentProblem.value?.answerType === 'text' ? 'text' : 'decimal'
+})
 
 onMounted(async () => {
   if (!currentSession.value) {
@@ -431,6 +437,137 @@ async function handleNextProblem() {
 @keyframes spin {
   to {
     transform: rotate(360deg);
+  }
+}
+
+/* Mobile optimizations */
+@media (max-width: 768px) {
+  .game-view {
+    padding: 1rem 0.75rem;
+  }
+
+  .game-container {
+    gap: 1rem;
+  }
+
+  .game-header {
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .progress-info {
+    width: 100%;
+    min-width: unset;
+  }
+
+  .progress-info h3 {
+    font-size: 1rem;
+  }
+
+  .game-stats {
+    width: 100%;
+    justify-content: space-around;
+    gap: 1rem;
+    padding: 0.75rem;
+    background: #f8f9fa;
+    border-radius: 8px;
+  }
+
+  .stat {
+    flex-direction: row;
+    gap: 0.5rem;
+  }
+
+  .stat-label {
+    font-size: 0.8rem;
+  }
+
+  .stat-value {
+    font-size: 1.25rem;
+  }
+
+  .problem-card {
+    min-height: unset;
+    padding: 1.25rem;
+  }
+
+  .problem-content {
+    gap: 1rem;
+  }
+
+  .problem-topic {
+    font-size: 0.8rem;
+    padding: 0.2rem 0.6rem;
+  }
+
+  .problem-question {
+    font-size: 1.25rem;
+    line-height: 1.5;
+  }
+
+  .hints-section {
+    padding: 0.75rem;
+    font-size: 0.9rem;
+  }
+
+  .hints-section h4 {
+    font-size: 0.9rem;
+  }
+
+  .answer-section input {
+    font-size: 16px; /* Prevents iOS zoom */
+    padding: 0.875rem;
+  }
+
+  .action-buttons {
+    flex-direction: column-reverse;
+    gap: 0.75rem;
+  }
+
+  .action-buttons .btn {
+    width: 100%;
+    padding: 0.875rem;
+    font-size: 1rem;
+  }
+
+  .feedback-card {
+    padding: 1.5rem 1rem;
+  }
+
+  .feedback-card h3 {
+    font-size: 1.25rem;
+  }
+
+  .feedback-card button {
+    width: 100%;
+    padding: 0.875rem;
+  }
+
+  .loading {
+    padding: 2rem;
+    font-size: 1rem;
+  }
+}
+
+@media (max-width: 380px) {
+  .game-view {
+    padding: 0.75rem 0.5rem;
+  }
+
+  .problem-card {
+    padding: 1rem;
+  }
+
+  .problem-question {
+    font-size: 1.1rem;
+  }
+
+  .game-stats {
+    padding: 0.5rem;
+  }
+
+  .stat-value {
+    font-size: 1.1rem;
   }
 }
 </style>

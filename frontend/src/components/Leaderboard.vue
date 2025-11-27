@@ -1,6 +1,6 @@
 <template>
   <div class="leaderboard card">
-    <h3>Top 10 Mathletes</h3>
+    <h3>Top 10 Ninjas</h3>
     <div v-if="loading" class="loading">Loading...</div>
     <div v-else-if="error" class="error-message">{{ error }}</div>
     <div v-else-if="leaderboard.length === 0" class="empty-state">
@@ -138,38 +138,47 @@ onMounted(async () => {
   .leaderboard {
     width: 340px;
     max-width: calc(100vw - 2rem);
+    padding: 1rem;
   }
 
   .leaderboard h3 {
-    font-size: 1.3rem;
-    margin-bottom: 1rem;
+    font-size: 1.1rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .leaderboard-list {
+    gap: 0.4rem;
   }
 
   .leaderboard-entry {
     gap: 0.5rem;
-    padding: 0.65rem;
+    padding: 0.5rem 0.6rem;
+  }
+
+  .leaderboard-entry:hover {
+    transform: none;
   }
 
   .rank {
-    font-size: 1.1rem;
-    min-width: 35px;
+    font-size: 1rem;
+    min-width: 30px;
   }
 
   .medal {
-    font-size: 1.4rem;
+    font-size: 1.2rem;
   }
 
   .screen-name {
-    font-size: 0.95rem;
+    font-size: 0.85rem;
   }
 
   .stats {
-    font-size: 0.7rem;
+    font-size: 0.65rem;
   }
 
   .score {
-    font-size: 1.1rem;
-    min-width: 55px;
+    font-size: 1rem;
+    min-width: 50px;
   }
 }
 </style>

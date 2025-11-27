@@ -4,9 +4,9 @@
       <div class="header-content">
         <router-link to="/" class="logo-link">
           <h1 class="logo">
-            <span class="logo-emoji">🎓</span>
-            <span class="logo-text">Math Tutor</span>
-            <span class="logo-emoji">✨</span>
+            <span class="logo-emoji">🥷</span>
+            <span class="logo-text">Number Ninja</span>
+            <span class="logo-emoji">🔢</span>
           </h1>
         </router-link>
         <div class="user-info">
@@ -39,7 +39,7 @@ const user = computed(() => authStore.user)
 
 async function handleLogout() {
   await authStore.logout()
-  router.push({ name: 'login' })
+  router.push({ name: 'home' })
 }
 </script>
 
@@ -137,8 +137,8 @@ async function handleLogout() {
 }
 
 .logo-text {
-  font-family: 'Comic Sans MS', 'Chalkboard SE', 'Arial Rounded MT Bold', cursive, sans-serif;
-  letter-spacing: 1px;
+  font-family: 'Bangers', cursive, sans-serif;
+  letter-spacing: 2px;
 }
 
 .user-info {

@@ -135,4 +135,62 @@ async function handleLogin() {
 .auth-link a:hover {
   text-decoration: underline;
 }
+
+/* Mobile optimizations */
+@media (max-width: 768px) {
+  .login-view {
+    min-height: calc(100vh - 140px);
+    padding: 1rem;
+    align-items: flex-start;
+    padding-top: 2rem;
+  }
+
+  .auth-card {
+    padding: 1.5rem;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+  }
+
+  .auth-card h2 {
+    font-size: 1.5rem;
+  }
+
+  .subtitle {
+    font-size: 0.9rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .form-group input {
+    padding: 0.875rem;
+    font-size: 16px; /* Prevents zoom on iOS */
+  }
+
+  .btn-block {
+    padding: 0.875rem;
+    font-size: 1rem;
+  }
+
+  .forgot-password-link {
+    margin-top: 0.75rem;
+  }
+
+  .auth-link {
+    margin-top: 1rem;
+    font-size: 0.9rem;
+  }
+}
+
+@media (max-width: 380px) {
+  .login-view {
+    padding: 0.75rem;
+    padding-top: 1.5rem;
+  }
+
+  .auth-card {
+    padding: 1.25rem;
+  }
+
+  .auth-card h2 {
+    font-size: 1.35rem;
+  }
+}
 </style>

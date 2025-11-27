@@ -278,32 +278,34 @@ onMounted(async () => {
   .activity-calendar {
     width: 340px;
     max-width: calc(100vw - 2rem);
+    padding: 1rem;
   }
 
   .activity-calendar h3 {
-    font-size: 1.3rem;
-    margin-bottom: 1rem;
+    font-size: 1.1rem;
+    margin-bottom: 0.75rem;
   }
 
   .calendar-container {
-    gap: 1rem;
+    gap: 0.75rem;
   }
 
   .stats-summary {
     gap: 1.5rem;
+    margin-bottom: 0;
   }
 
   .stat-value {
-    font-size: 1.5rem;
+    font-size: 1.25rem;
   }
 
   .stat-label {
-    font-size: 0.75rem;
+    font-size: 0.7rem;
   }
 
   .calendar-grid {
     grid-template-columns: repeat(7, 1fr);
-    gap: 0.3rem;
+    gap: 0.25rem;
   }
 
   .calendar-day {
@@ -311,29 +313,29 @@ onMounted(async () => {
   }
 
   .day-label {
-    font-size: 0.55rem;
+    font-size: 0.5rem;
   }
 
   .day-date {
-    font-size: 0.7rem;
+    font-size: 0.65rem;
   }
 
   .day-count {
-    font-size: 0.55rem;
+    font-size: 0.5rem;
     top: 1px;
-    right: 2px;
+    right: 1px;
     padding: 0 2px;
-    min-width: 12px;
+    min-width: 10px;
   }
 
   .legend {
-    gap: 0.3rem;
-    font-size: 0.7rem;
+    gap: 0.25rem;
+    font-size: 0.65rem;
   }
 
   .legend-box {
-    width: 14px;
-    height: 14px;
+    width: 12px;
+    height: 12px;
   }
 }
 </style>

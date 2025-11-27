@@ -620,8 +620,9 @@ function getDayTooltip(day: { date: string, activity: any }): string {
 }
 
 .topic-name {
-  font-size: 1.1rem;
-  font-weight: 700;
+  font-family: 'Bangers', cursive, sans-serif;
+  font-size: 1.2rem;
+  letter-spacing: 0.5px;
   flex: 1;
   text-align: left;
 }
@@ -749,7 +750,9 @@ function getDayTooltip(day: { date: string, activity: any }): string {
 }
 
 .achievement-name {
-  font-weight: bold;
+  font-family: 'Bangers', cursive, sans-serif;
+  font-size: 1.1rem;
+  letter-spacing: 0.5px;
   margin-bottom: 0.5rem;
 }
 
