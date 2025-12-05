@@ -39,7 +39,7 @@ export async function invokeNova(prompt: string): Promise<string> {
 
 export async function generateMathProblems(difficulty: string, count: number = 10, subcategories?: string[]) {
   const difficultyDescriptions = {
-    elementary: 'elementary level (ages 6-10): basic addition, subtraction, simple multiplication and division, number patterns',
+    elementary: 'elementary level (ages 6-10): basic addition, subtraction, simple multiplication and division, number patterns, and basic fractions (halves, thirds, quarters, identifying parts of a whole, simple fraction comparisons)',
     middle: 'middle school level (ages 11-14): fractions, decimals, percentages, basic algebra, geometry concepts',
     high: 'high school level (ages 15-18): algebra, quadratic equations, geometry, trigonometry, advanced problem solving'
   }

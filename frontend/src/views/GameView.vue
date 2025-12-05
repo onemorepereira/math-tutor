@@ -129,9 +129,12 @@ const canRequestHint = computed(() => gameStore.canRequestHint)
 const hintsUsedCount = computed(() => gameStore.hintsUsedCount)
 const hintsReceived = computed(() => gameStore.hintsReceived)
 
-// Dynamic input mode based on answer type
+// Dynamic input mode based on answer type and topic
 const answerInputMode = computed(() => {
-  return currentProblem.value?.answerType === 'text' ? 'text' : 'decimal'
+  // Use text input for text answers or fraction problems (need "/" key)
+  if (currentProblem.value?.answerType === 'text') return 'text'
+  if (currentProblem.value?.topic === 'Fractions') return 'text'
+  return 'decimal'
 })
 
 onMounted(async () => {

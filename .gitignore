@@ -29,6 +29,7 @@ yarn-error.log*
 lerna-debug.log*
 pnpm-debug.log*
 *.log
+CLAUDE.md
 
 # OS files
 .DS_Store

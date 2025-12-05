@@ -7,7 +7,7 @@ export interface Subcategories {
 }
 
 export const SUBCATEGORIES: Subcategories = {
-  elementary: ['Addition', 'Subtraction', 'Multiplication', 'Division', 'Number Patterns'],
+  elementary: ['Addition', 'Subtraction', 'Multiplication', 'Division', 'Number Patterns', 'Fractions'],
   middle: ['Fractions', 'Decimals', 'Percentages', 'Basic Algebra', 'Geometry'],
   high: ['Algebra', 'Quadratic Equations', 'Geometry', 'Trigonometry', 'Advanced Problems']
 }
