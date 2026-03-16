@@ -99,6 +99,57 @@ IMPORTANT: Return ONLY the JSON array, no additional text or explanation.`
   return JSON.parse(jsonMatch[0])
 }
 
+export async function verifyTextAnswers(
+  problems: Array<{ id: string; question: string; correctAnswer: string; answerType: string }>
+): Promise<Array<{ id: string; question: string; correctAnswer: string; answerType: string }>> {
+  const textProblems = problems.filter(p => p.answerType === 'text')
+
+  if (textProblems.length === 0) {
+    return problems
+  }
+
+  const questionsForVerification = textProblems.map((p, i) => `${i + 1}. [ID: ${p.id}] ${p.question}`).join('\n')
+
+  const prompt = `Solve each of the following problems. For each one, provide ONLY the answer — a single word or short phrase.
+
+${questionsForVerification}
+
+Return your answers as a JSON object mapping each ID to your answer. Example:
+{"id-1": "answer1", "id-2": "answer2"}
+
+IMPORTANT: Return ONLY the JSON object, no additional text.`
+
+  try {
+    const response = await invokeNova(prompt, 0.3)
+
+    const jsonMatch = response.match(/\{[\s\S]*\}/)
+    if (!jsonMatch) {
+      return problems
+    }
+
+    const verifiedAnswers: Record<string, string> = JSON.parse(jsonMatch[0])
+
+    return problems.map(p => {
+      if (p.answerType !== 'text') return p
+
+      const verifiedAnswer = verifiedAnswers[p.id]
+      if (!verifiedAnswer) return p
+
+      const normalizedOriginal = p.correctAnswer.toLowerCase().trim()
+      const normalizedVerified = verifiedAnswer.toLowerCase().trim()
+
+      if (normalizedOriginal !== normalizedVerified) {
+        return { ...p, correctAnswer: verifiedAnswer.trim() }
+      }
+
+      return p
+    })
+  } catch {
+    // Verification failed — fall through with original answers
+    return problems
+  }
+}
+
 export async function generateHint(
   question: string,
   correctAnswer: string,
