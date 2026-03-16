@@ -9,7 +9,7 @@ export interface BedrockResponse {
   content: string
 }
 
-export async function invokeNova(prompt: string): Promise<string> {
+export async function invokeNova(prompt: string, temperature: number = 0.9): Promise<string> {
   const payload = {
     messages: [
       {
@@ -19,7 +19,7 @@ export async function invokeNova(prompt: string): Promise<string> {
     ],
     inferenceConfig: {
       maxTokens: 2048,
-      temperature: 0.9,
+      temperature,
       topP: 0.95
     }
   }
