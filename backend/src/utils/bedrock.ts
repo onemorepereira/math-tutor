@@ -4,12 +4,14 @@ const client = new BedrockRuntimeClient({ region: process.env.BEDROCK_REGION || 
 
 // Use Amazon Nova Lite for cost-effective problem generation
 const MODEL_ID = 'amazon.nova-lite-v1:0'
+// Use Amazon Nova Pro for answer verification (more accurate)
+const VERIFICATION_MODEL_ID = 'amazon.nova-pro-v1:0'
 
 export interface BedrockResponse {
   content: string
 }
 
-export async function invokeNova(prompt: string, temperature: number = 0.9): Promise<string> {
+export async function invokeNova(prompt: string, temperature: number = 0.9, modelId: string = MODEL_ID): Promise<string> {
   const payload = {
     messages: [
       {
@@ -25,7 +27,7 @@ export async function invokeNova(prompt: string, temperature: number = 0.9): Pro
   }
 
   const command = new InvokeModelCommand({
-    modelId: MODEL_ID,
+    modelId,
     contentType: 'application/json',
     accept: 'application/json',
     body: JSON.stringify(payload)
@@ -119,33 +121,44 @@ Return your answers as a JSON object mapping each ID to your answer. Example:
 
 IMPORTANT: Return ONLY the JSON object, no additional text.`
 
+  console.log(`[verifyTextAnswers] Verifying ${textProblems.length} text-answer problems using Nova Pro`)
+  console.log(`[verifyTextAnswers] Questions:`, JSON.stringify(textProblems.map(p => ({ id: p.id, question: p.question, originalAnswer: p.correctAnswer }))))
+
   try {
-    const response = await invokeNova(prompt, 0.3)
+    const response = await invokeNova(prompt, 0.3, VERIFICATION_MODEL_ID)
+    console.log(`[verifyTextAnswers] Nova Pro response:`, response)
 
     const jsonMatch = response.match(/\{[\s\S]*\}/)
     if (!jsonMatch) {
+      console.log(`[verifyTextAnswers] Failed to parse JSON from response, using original answers`)
       return problems
     }
 
     const verifiedAnswers: Record<string, string> = JSON.parse(jsonMatch[0])
+    console.log(`[verifyTextAnswers] Verified answers:`, JSON.stringify(verifiedAnswers))
 
     return problems.map(p => {
       if (p.answerType !== 'text') return p
 
       const verifiedAnswer = verifiedAnswers[p.id]
-      if (!verifiedAnswer) return p
+      if (!verifiedAnswer) {
+        console.log(`[verifyTextAnswers] No verified answer for problem ${p.id}, keeping original: "${p.correctAnswer}"`)
+        return p
+      }
 
       const normalizedOriginal = p.correctAnswer.toLowerCase().trim()
       const normalizedVerified = verifiedAnswer.toLowerCase().trim()
 
       if (normalizedOriginal !== normalizedVerified) {
+        console.log(`[verifyTextAnswers] MISMATCH for "${p.question}": original="${p.correctAnswer}" verified="${verifiedAnswer.trim()}" — using verified`)
         return { ...p, correctAnswer: verifiedAnswer.trim() }
       }
 
+      console.log(`[verifyTextAnswers] Match for "${p.question}": "${p.correctAnswer}"`)
       return p
     })
-  } catch {
-    // Verification failed — fall through with original answers
+  } catch (error) {
+    console.log(`[verifyTextAnswers] Verification failed, using original answers:`, error)
     return problems
   }
 }
