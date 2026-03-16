@@ -2,7 +2,7 @@ import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda'
 import { PutCommand, QueryCommand } from '@aws-sdk/lib-dynamodb'
 import { v4 as uuidv4 } from 'uuid'
 import { dynamodb, USER_TABLE, GAME_SESSION_TABLE } from '../utils/dynamodb.js'
-import { generateMathProblems } from '../utils/bedrock.js'
+import { generateMathProblems, verifyTextAnswers } from '../utils/bedrock.js'
 import { sanitizeError, createSuccessResponse, createErrorResponse } from '../utils/errorHandler.js'
 import { validateDifficulty, validateProblemCount, validateSubcategories } from '../utils/validation.js'
 
@@ -58,15 +58,18 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const generatedProblems = await generateMathProblems(difficulty, problemCount, subcategories)
 
     // Add IDs to problems
-    const problems = generatedProblems.map((p: any) => ({
+    const problemsWithIds = generatedProblems.map((p: any) => ({
       id: uuidv4(),
       question: p.question,
       correctAnswer: p.correctAnswer,
       difficulty,
       topic: p.topic,
       maxPoints: p.maxPoints,
-      answerType: p.answerType || 'numeric' // Default to numeric for backwards compatibility
+      answerType: p.answerType || 'numeric'
     }))
+
+    // Verify text-answer problems by independently solving them
+    const problems = await verifyTextAnswers(problemsWithIds)
 
     const sessionId = uuidv4()
     const session = {
