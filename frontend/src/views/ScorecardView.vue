@@ -27,7 +27,7 @@
             <div class="stat-label">Hints Used</div>
           </div>
           <div class="stat-item">
-            <div class="stat-value">{{ formatTime(scorecard.totalTimeSeconds) }}</div>
+            <div class="stat-value">{{ formatClock(scorecard.totalTimeSeconds) }}</div>
             <div class="stat-label">Total Time</div>
           </div>
         </div>
@@ -114,6 +114,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useGameStore } from '@/stores/game'
 import type { SolutionExplanation } from '@/types'
+import { formatClock } from '@/utils/time'
 
 const router = useRouter()
 const gameStore = useGameStore()
@@ -138,12 +139,6 @@ onMounted(async () => {
     }
   }
 })
-
-function formatTime(seconds: number): string {
-  const mins = Math.floor(seconds / 60)
-  const secs = seconds % 60
-  return `${mins}:${secs.toString().padStart(2, '0')}`
-}
 
 function getScoreMessage(): string {
   if (!scorecard.value) return ''

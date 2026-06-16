@@ -74,6 +74,7 @@
 import { ref, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { useCooldown } from '@/composables/useCooldown'
 
 const router = useRouter()
 const route = useRoute()
@@ -87,8 +88,7 @@ const error = ref<string | null>(null)
 const successMessage = ref<string | null>(null)
 const isLoading = ref(false)
 const isResending = ref(false)
-const cooldownActive = ref(false)
-const cooldownSeconds = ref(0)
+const { cooldownActive, cooldownSeconds, startCooldown } = useCooldown(60)
 
 onMounted(() => {
   email.value = route.query.email as string || ''
@@ -151,15 +151,7 @@ async function handleResend() {
     successMessage.value = 'Verification code sent! Check your email.'
 
     // Start 60-second cooldown
-    cooldownActive.value = true
-    cooldownSeconds.value = 60
-    const interval = setInterval(() => {
-      cooldownSeconds.value--
-      if (cooldownSeconds.value <= 0) {
-        cooldownActive.value = false
-        clearInterval(interval)
-      }
-    }, 1000)
+    startCooldown()
   } catch (err: any) {
     error.value = err.message || 'Failed to resend code. Please try again.'
   } finally {

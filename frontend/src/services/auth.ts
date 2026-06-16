@@ -3,9 +3,21 @@ import type { User } from '@/types'
 import {
   CognitoUserPool,
   CognitoUser,
+  CognitoUserSession,
   AuthenticationDetails,
   CognitoUserAttribute
 } from 'amazon-cognito-identity-js'
+
+interface AuthSession {
+  session: CognitoUserSession
+  user: User
+}
+
+interface RegisterResult {
+  cognitoUser: CognitoUser
+  userConfirmed: boolean
+  email: string
+}
 
 const API_URL = import.meta.env.VITE_API_URL || '/api'
 
@@ -18,7 +30,7 @@ const userPool = new CognitoUserPool(poolData)
 
 export const authService = {
   async register(email: string, password: string, ageGroup: string) {
-    return new Promise((resolve, reject) => {
+    return new Promise<RegisterResult>((resolve, reject) => {
       const attributeList = [
         new CognitoUserAttribute({
           Name: 'email',
@@ -50,13 +62,13 @@ export const authService = {
   },
 
   async confirmEmail(email: string, code: string, password: string, ageGroup: string) {
-    return new Promise((resolve, reject) => {
+    return new Promise<AuthSession>((resolve, reject) => {
       const cognitoUser = new CognitoUser({
         Username: email,
         Pool: userPool
       })
 
-      cognitoUser.confirmRegistration(code, true, async (err, result) => {
+      cognitoUser.confirmRegistration(code, true, async (err) => {
         if (err) {
           reject(err)
           return
@@ -141,7 +153,7 @@ export const authService = {
   },
 
   async confirmPasswordReset(email: string, code: string, newPassword: string) {
-    return new Promise((resolve, reject) => {
+    return new Promise<{ success: boolean }>((resolve, reject) => {
       const cognitoUser = new CognitoUser({
         Username: email,
         Pool: userPool
@@ -159,7 +171,7 @@ export const authService = {
   },
 
   async login(email: string, password: string) {
-    return new Promise((resolve, reject) => {
+    return new Promise<AuthSession>((resolve, reject) => {
       const authenticationDetails = new AuthenticationDetails({
         Username: email,
         Password: password

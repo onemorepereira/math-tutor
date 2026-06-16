@@ -2,103 +2,58 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import type { User } from '@/types'
 import { authService } from '@/services/auth'
+import { useLoadingState } from '@/composables/useLoadingState'
 
 export const useAuthStore = defineStore('auth', () => {
   const user = ref<User | null>(null)
   const isAuthenticated = ref(false)
-  const isLoading = ref(false)
-  const error = ref<string | null>(null)
+  const { isLoading, error, withLoading } = useLoadingState()
 
   async function register(email: string, password: string, ageGroup: string) {
-    isLoading.value = true
-    error.value = null
-
-    try {
-      const result = await authService.register(email, password, ageGroup)
-      // Don't set user/isAuthenticated yet - they need to verify email first
-      return result
-    } catch (err: any) {
-      error.value = err.message || 'Registration failed'
-      throw err
-    } finally {
-      isLoading.value = false
-    }
+    // Don't set user/isAuthenticated yet - they need to verify email first
+    return withLoading(
+      () => authService.register(email, password, ageGroup),
+      'Registration failed'
+    )
   }
 
   async function confirmEmail(email: string, code: string, password: string, ageGroup: string) {
-    isLoading.value = true
-    error.value = null
-
-    try {
+    return withLoading(async () => {
       const result = await authService.confirmEmail(email, code, password, ageGroup)
       user.value = result.user
       isAuthenticated.value = true
       return result
-    } catch (err: any) {
-      error.value = err.message || 'Email verification failed'
-      throw err
-    } finally {
-      isLoading.value = false
-    }
+    }, 'Email verification failed')
   }
 
   async function resendConfirmationCode(email: string) {
-    isLoading.value = true
-    error.value = null
-
-    try {
-      await authService.resendConfirmationCode(email)
-    } catch (err: any) {
-      error.value = err.message || 'Failed to resend code'
-      throw err
-    } finally {
-      isLoading.value = false
-    }
+    return withLoading(
+      () => authService.resendConfirmationCode(email),
+      'Failed to resend code'
+    )
   }
 
   async function forgotPassword(email: string) {
-    isLoading.value = true
-    error.value = null
-
-    try {
-      await authService.forgotPassword(email)
-    } catch (err: any) {
-      error.value = err.message || 'Failed to send password reset code'
-      throw err
-    } finally {
-      isLoading.value = false
-    }
+    return withLoading(
+      () => authService.forgotPassword(email),
+      'Failed to send password reset code'
+    )
   }
 
   async function confirmPasswordReset(email: string, code: string, newPassword: string) {
-    isLoading.value = true
-    error.value = null
-
-    try {
-      await authService.confirmPasswordReset(email, code, newPassword)
-    } catch (err: any) {
-      error.value = err.message || 'Failed to reset password'
-      throw err
-    } finally {
-      isLoading.value = false
-    }
+    return withLoading(
+      () => authService.confirmPasswordReset(email, code, newPassword),
+      'Failed to reset password'
+    )
   }
 
   async function login(email: string, password: string) {
-    isLoading.value = true
-    error.value = null
-
-    try {
+    return withLoading(async () => {
       const result = await authService.login(email, password)
       user.value = result.user
       isAuthenticated.value = true
       return result
-    } catch (err: any) {
-      error.value = err.message || 'Login failed'
-      throw err
-    } finally {
-      isLoading.value = false
-    }
+    }, 'Login failed')
   }
 
   async function logout() {

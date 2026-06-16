@@ -2,14 +2,14 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { GameSession, MathProblem, ProblemAttempt, Hint, Scorecard, DifficultyLevel } from '@/types'
 import { gameService } from '@/services/game'
+import { useLoadingState } from '@/composables/useLoadingState'
 
 export const useGameStore = defineStore('game', () => {
   const currentSession = ref<GameSession | null>(null)
   const currentProblem = ref<MathProblem | null>(null)
   const currentAttempt = ref<ProblemAttempt | null>(null)
   const hintsReceived = ref<Hint[]>([])
-  const isLoading = ref(false)
-  const error = ref<string | null>(null)
+  const { isLoading, error, withLoading } = useLoadingState()
   const scorecard = ref<Scorecard | null>(null)
 
   const problemStartTime = ref<number>(0)
@@ -30,21 +30,13 @@ export const useGameStore = defineStore('game', () => {
   })
 
   async function startNewGame(difficulty: DifficultyLevel, problemCount: number = 10, subcategories?: string[]) {
-    isLoading.value = true
-    error.value = null
     scorecard.value = null
-
-    try {
+    return withLoading(async () => {
       const session = await gameService.createGameSession(difficulty, problemCount, subcategories)
       currentSession.value = session
       await loadNextProblem()
       return session
-    } catch (err: any) {
-      error.value = err.message || 'Failed to start game'
-      throw err
-    } finally {
-      isLoading.value = false
-    }
+    }, 'Failed to start game')
   }
 
   async function loadNextProblem() {
@@ -78,12 +70,11 @@ export const useGameStore = defineStore('game', () => {
       return null
     }
 
-    isLoading.value = true
-    try {
+    return withLoading(async () => {
       const hintNumber = (hintsUsedCount.value + 1) as 1 | 2
       const hint = await gameService.requestHint(
-        currentSession.value.sessionId,
-        currentProblem.value.id,
+        currentSession.value!.sessionId,
+        currentProblem.value!.id,
         hintNumber
       )
 
@@ -91,12 +82,7 @@ export const useGameStore = defineStore('game', () => {
       hintsUsedCount.value++
 
       return hint
-    } catch (err: any) {
-      error.value = err.message || 'Failed to get hint'
-      throw err
-    } finally {
-      isLoading.value = false
-    }
+    }, 'Failed to get hint', { resetError: false })
   }
 
   async function submitAnswer(answer: string) {
@@ -104,22 +90,19 @@ export const useGameStore = defineStore('game', () => {
       return
     }
 
-    isLoading.value = true
-    error.value = null
-
-    try {
+    return withLoading(async () => {
       const timeSpent = Math.floor((Date.now() - problemStartTime.value) / 1000)
 
       const result = await gameService.submitAnswer(
-        currentSession.value.sessionId,
-        currentProblem.value.id,
+        currentSession.value!.sessionId,
+        currentProblem.value!.id,
         answer,
         hintsUsedCount.value,
         timeSpent
       )
 
       currentAttempt.value = {
-        ...currentAttempt.value,
+        ...currentAttempt.value!,
         userAnswer: answer,
         isCorrect: result.isCorrect,
         hintsUsed: hintsUsedCount.value,
@@ -128,54 +111,35 @@ export const useGameStore = defineStore('game', () => {
         endTime: Date.now()
       }
 
-      currentSession.value.attempts.push(currentAttempt.value)
-      currentSession.value.currentProblemIndex++
-      currentSession.value.totalScore += result.pointsEarned
-      currentSession.value.totalTimeSeconds += timeSpent
+      currentSession.value!.attempts.push(currentAttempt.value)
+      currentSession.value!.currentProblemIndex++
+      currentSession.value!.totalScore += result.pointsEarned
+      currentSession.value!.totalTimeSeconds += timeSpent
 
       return result
-    } catch (err: any) {
-      error.value = err.message || 'Failed to submit answer'
-      throw err
-    } finally {
-      isLoading.value = false
-    }
+    }, 'Failed to submit answer')
   }
 
   async function endGame() {
     if (!currentSession.value) return
 
-    isLoading.value = true
-    try {
-      const finalScorecard = await gameService.endGameSession(currentSession.value.sessionId)
+    return withLoading(async () => {
+      const finalScorecard = await gameService.endGameSession(currentSession.value!.sessionId)
       scorecard.value = finalScorecard
-      currentSession.value.isCompleted = true
+      currentSession.value!.isCompleted = true
       currentProblem.value = null
       return finalScorecard
-    } catch (err: any) {
-      error.value = err.message || 'Failed to end game'
-      throw err
-    } finally {
-      isLoading.value = false
-    }
+    }, 'Failed to end game', { resetError: false })
   }
 
   async function getSolutionExplanation(problemId: string) {
     if (!currentSession.value) return null
 
-    isLoading.value = true
-    try {
-      const explanation = await gameService.getSolutionExplanation(
-        currentSession.value.sessionId,
-        problemId
-      )
-      return explanation
-    } catch (err: any) {
-      error.value = err.message || 'Failed to get explanation'
-      throw err
-    } finally {
-      isLoading.value = false
-    }
+    return withLoading(
+      () => gameService.getSolutionExplanation(currentSession.value!.sessionId, problemId),
+      'Failed to get explanation',
+      { resetError: false }
+    )
   }
 
   function resetGame() {

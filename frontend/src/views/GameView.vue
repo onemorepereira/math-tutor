@@ -23,7 +23,7 @@
           </div>
           <div class="stat">
             <span class="stat-label">Time:</span>
-            <span class="stat-value">{{ formatTime(elapsedTime) }}</span>
+            <span class="stat-value">{{ formatClock(elapsedTime) }}</span>
           </div>
         </div>
       </div>
@@ -108,6 +108,7 @@
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { useGameStore } from '@/stores/game'
+import { formatClock } from '@/utils/time'
 
 const router = useRouter()
 const gameStore = useGameStore()
@@ -166,12 +167,6 @@ function stopTimer() {
     clearInterval(timerInterval)
     timerInterval = null
   }
-}
-
-function formatTime(seconds: number): string {
-  const mins = Math.floor(seconds / 60)
-  const secs = seconds % 60
-  return `${mins}:${secs.toString().padStart(2, '0')}`
 }
 
 async function handleHintRequest() {
