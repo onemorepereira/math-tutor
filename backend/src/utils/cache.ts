@@ -1,7 +1,10 @@
 import { GetCommand, PutCommand } from '@aws-sdk/lib-dynamodb'
 import { dynamodb } from './dynamodb.js'
 
-const CACHE_TABLE = process.env.CACHE_TABLE || 'math-tutor-public-cache-dev'
+const CACHE_TABLE = process.env.CACHE_TABLE
+if (!CACHE_TABLE) {
+  throw new Error('CACHE_TABLE environment variable is not set')
+}
 
 // Cache TTL: 15 minutes
 const CACHE_TTL_SECONDS = 15 * 60

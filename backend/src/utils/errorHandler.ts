@@ -2,8 +2,16 @@
  * Error handler utility to sanitize errors and prevent leaking backend details
  */
 
+const CORS_HEADERS = {
+  'Content-Type': 'application/json',
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'Content-Type,Authorization',
+  'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS'
+}
+
 export interface SanitizedError {
   statusCode: number
+  headers: typeof CORS_HEADERS
   body: string
 }
 
@@ -52,6 +60,7 @@ export function sanitizeError(error: unknown, context: string): SanitizedError {
 
   return {
     statusCode,
+    headers: CORS_HEADERS,
     body: JSON.stringify({ error: message })
   }
 }
@@ -62,12 +71,7 @@ export function sanitizeError(error: unknown, context: string): SanitizedError {
 export function createSuccessResponse(data: any, statusCode: number = 200) {
   return {
     statusCode,
-    headers: {
-      'Content-Type': 'application/json',
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Headers': 'Content-Type,Authorization',
-      'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS'
-    },
+    headers: CORS_HEADERS,
     body: JSON.stringify(data)
   }
 }
@@ -78,12 +82,7 @@ export function createSuccessResponse(data: any, statusCode: number = 200) {
 export function createErrorResponse(statusCode: number, message: string) {
   return {
     statusCode,
-    headers: {
-      'Content-Type': 'application/json',
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Headers': 'Content-Type,Authorization',
-      'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS'
-    },
+    headers: CORS_HEADERS,
     body: JSON.stringify({ error: message })
   }
 }
