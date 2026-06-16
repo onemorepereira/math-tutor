@@ -1,7 +1,7 @@
 .PHONY: help build deploy-infrastructure upload invalidate deploy clean outputs dev
 
-# Environment configuration
-ENV ?= dev
+# Environment configuration (prod is the only active environment)
+ENV ?= prod
 BACKEND_STACK_NAME = math-tutor-$(ENV)
 FRONTEND_STACK_NAME = math-tutor-frontend-$(ENV)
 REGION ?= us-east-1
@@ -47,9 +47,9 @@ get-backend-config: ## Fetch backend configuration (API URL, Cognito credentials
 	echo "VITE_COGNITO_CLIENT_ID=$$CLIENT_ID" >> .env.production; \
 	echo "$(GREEN)✓ Configuration saved to .env.production$(NC)"
 
-build: get-backend-config ## Build the frontend application
+build: get-backend-config ## Build the frontend application (type-checks via vue-tsc)
 	@echo "$(GREEN)Building frontend...$(NC)"
-	npm run build:prod
+	npm run build
 	@echo "$(GREEN)✓ Build complete$(NC)"
 
 deploy-infrastructure: ## Deploy/update CloudFormation infrastructure (S3 + CloudFront)

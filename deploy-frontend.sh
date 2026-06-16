@@ -11,9 +11,10 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
-# Default values
-ENVIRONMENT=${1:-dev}
+# Default values (prod is the only active environment)
+ENVIRONMENT=${1:-prod}
 STACK_NAME="math-tutor-frontend-${ENVIRONMENT}"
+BACKEND_STACK_NAME="math-tutor-${ENVIRONMENT}"
 
 echo -e "${GREEN}========================================${NC}"
 echo -e "${GREEN}Math Tutor Frontend Deployment${NC}"
@@ -23,7 +24,7 @@ echo -e "${GREEN}========================================${NC}"
 # Step 1: Get the API URL from backend stack
 echo -e "\n${YELLOW}Step 1: Getting API URL from backend stack...${NC}"
 API_URL=$(aws cloudformation describe-stacks \
-  --stack-name "math-tutor-dev" \
+  --stack-name "$BACKEND_STACK_NAME" \
   --query "Stacks[0].Outputs[?OutputKey=='ApiUrl'].OutputValue" \
   --output text 2>/dev/null || echo "")
 
@@ -85,12 +86,12 @@ cd frontend
 # Get Cognito credentials from backend stack
 echo -e "${YELLOW}Getting Cognito credentials...${NC}"
 USER_POOL_ID=$(aws cloudformation describe-stacks \
-  --stack-name "math-tutor-dev" \
+  --stack-name "$BACKEND_STACK_NAME" \
   --query "Stacks[0].Outputs[?OutputKey=='UserPoolId'].OutputValue" \
   --output text)
 
 CLIENT_ID=$(aws cloudformation describe-stacks \
-  --stack-name "math-tutor-dev" \
+  --stack-name "$BACKEND_STACK_NAME" \
   --query "Stacks[0].Outputs[?OutputKey=='UserPoolClientId'].OutputValue" \
   --output text)
 
@@ -112,9 +113,9 @@ if [ ! -d "node_modules" ]; then
   npm install
 fi
 
-# Build the app
+# Build the app (npm run build runs vue-tsc type-check before vite build)
 echo -e "${YELLOW}Building Vue app...${NC}"
-npm run build:prod
+npm run build
 
 if [ ! -d "dist" ]; then
   echo -e "${RED}Error: Build failed - dist directory not found${NC}"

@@ -1,7 +1,7 @@
 .PHONY: help build deploy enable-signups disable-signups check-signups quick-update outputs status
 
-# Environment configuration
-ENV ?= dev
+# Environment configuration (prod is the only active environment)
+ENV ?= prod
 STACK_NAME = math-tutor-$(ENV)
 REGION ?= us-east-1
 

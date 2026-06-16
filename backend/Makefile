@@ -1,4 +1,3 @@
-export PATH := /home/mpereira/.asdf/installs/nodejs/24.11.0/bin:$(PATH)
 NPM = npm
 
 build-RegisterUserFunction:
