@@ -2,10 +2,18 @@ import { BedrockRuntimeClient, InvokeModelCommand } from '@aws-sdk/client-bedroc
 
 const client = new BedrockRuntimeClient({ region: process.env.BEDROCK_REGION || 'us-east-1' })
 
-// Use Amazon Nova Lite for cost-effective problem generation
-const MODEL_ID = 'amazon.nova-lite-v1:0'
-// Use Amazon Nova Pro for answer verification (more accurate)
-const VERIFICATION_MODEL_ID = 'amazon.nova-pro-v1:0'
+// Amazon Nova 2 Lite handles both problem generation and answer verification.
+// It is inference-profile only (no on-demand), so we invoke via the US cross-region
+// inference profile (keeps inference within US regions).
+const MODEL_ID = 'us.amazon.nova-2-lite-v1:0'
+const VERIFICATION_MODEL_ID = 'us.amazon.nova-2-lite-v1:0'
+
+// Verbose, per-problem logging is gated behind a flag to keep CloudWatch volume/cost down.
+// Set DEBUG_BEDROCK=true on the function to see full prompts/responses.
+const DEBUG = process.env.DEBUG_BEDROCK === 'true'
+function debug(...args: unknown[]): void {
+  if (DEBUG) console.log(...args)
+}
 
 export interface BedrockResponse {
   content: string
@@ -36,7 +44,15 @@ export async function invokeNova(prompt: string, temperature: number = 0.9, mode
   const response = await client.send(command)
   const responseBody = JSON.parse(new TextDecoder().decode(response.body))
 
-  return responseBody.output.message.content[0].text
+  // Return the first text content block. Nova 2 is a reasoning model; with extended
+  // thinking enabled it can emit non-text (reasoning) blocks first, so don't assume
+  // content[0] is the answer.
+  const content = responseBody.output?.message?.content ?? []
+  const textBlock = content.find((b: { text?: string }) => typeof b.text === 'string')
+  if (!textBlock) {
+    throw new Error('Bedrock response contained no text content')
+  }
+  return textBlock.text
 }
 
 export async function generateMathProblems(difficulty: string, count: number = 10, subcategories?: string[]) {
@@ -55,50 +71,35 @@ export async function generateMathProblems(difficulty: string, count: number = 1
     ? `\n\nFOCUS ONLY ON THESE TOPICS: ${subcategories.join(', ')}\nGenerate problems ONLY from these specific topics. Do not include problems from other topics.`
     : ''
 
+  // Note: the example below is intentionally a single compact inline object.
+  // A multi-line/multi-object example caused Nova 2 Lite to return an empty array.
   const prompt = `Generate ${count} UNIQUE and VARIED math problems for ${difficultyDescriptions[difficulty as keyof typeof difficultyDescriptions]}.${subcategoryConstraint}
 
 Session ID: ${timestamp}-${randomSeed}
 
-IMPORTANT: Create completely different problems each time. Use different numbers, scenarios, and problem types.
+Create completely different problems each time, using different numbers, scenarios, and problem types. Mix computational problems with word problems.
 
-For each problem, provide:
-1. A clear, engaging question with different numbers and contexts
-2. The correct answer
-3. A topic/category
-4. Maximum points (between 5-20 based on difficulty)
-5. Answer type: "numeric" if the answer is a number (including decimals/negatives), "text" if it's a word or phrase
+For each problem provide: a question, the correctAnswer, a topic, maxPoints (5-20 based on difficulty), and answerType ("numeric" if the answer is a number including decimals/negatives, "text" if it is a word or phrase).
 
-Format your response as a JSON array with this structure:
-[
-  {
-    "question": "What is 15 + 27?",
-    "correctAnswer": "42",
-    "topic": "Addition",
-    "maxPoints": 10,
-    "answerType": "numeric"
-  },
-  {
-    "question": "In the pattern: rose, tulip, daisy, rose, tulip, daisy... what is the 7th item?",
-    "correctAnswer": "rose",
-    "topic": "Number Patterns",
-    "maxPoints": 15,
-    "answerType": "text"
-  }
-]
+Format your response as a JSON array like:
+[{"question":"What is 15 + 27?","correctAnswer":"42","topic":"Addition","maxPoints":10,"answerType":"numeric"}]
 
-Make the problems HIGHLY VARIED, engaging, and appropriate for the age group. Mix computational problems with word problems. Use different numbers, contexts, and scenarios in each problem.
-
-IMPORTANT: Return ONLY the JSON array, no additional text or explanation.`
+You MUST output all ${count} complete problems. Return ONLY the JSON array, no additional text or explanation.`
 
   const response = await invokeNova(prompt)
 
-  // Extract JSON from response (in case there's additional text)
+  // Extract JSON from response (Nova may wrap it in markdown code fences)
   const jsonMatch = response.match(/\[[\s\S]*\]/)
   if (!jsonMatch) {
     throw new Error('Failed to parse problem generation response')
   }
 
-  return JSON.parse(jsonMatch[0])
+  const problems = JSON.parse(jsonMatch[0])
+  if (!Array.isArray(problems) || problems.length === 0) {
+    throw new Error('Problem generation returned no problems')
+  }
+
+  return problems
 }
 
 export async function verifyTextAnswers(
@@ -121,28 +122,29 @@ Return your answers as a JSON object mapping each ID to your answer. Example:
 
 IMPORTANT: Return ONLY the JSON object, no additional text.`
 
-  console.log(`[verifyTextAnswers] Verifying ${textProblems.length} text-answer problems using Nova Pro`)
-  console.log(`[verifyTextAnswers] Questions:`, JSON.stringify(textProblems.map(p => ({ id: p.id, question: p.question, originalAnswer: p.correctAnswer }))))
+  console.log(`[verifyTextAnswers] Verifying ${textProblems.length} text-answer problems using Nova 2 Lite`)
+  debug(`[verifyTextAnswers] Questions:`, JSON.stringify(textProblems.map(p => ({ id: p.id, question: p.question, originalAnswer: p.correctAnswer }))))
 
   try {
     const response = await invokeNova(prompt, 0.3, VERIFICATION_MODEL_ID)
-    console.log(`[verifyTextAnswers] Nova Pro response:`, response)
+    debug(`[verifyTextAnswers] Nova 2 Lite response:`, response)
 
     const jsonMatch = response.match(/\{[\s\S]*\}/)
     if (!jsonMatch) {
-      console.log(`[verifyTextAnswers] Failed to parse JSON from response, using original answers`)
+      console.warn(`[verifyTextAnswers] Failed to parse JSON from response, using original answers`)
       return problems
     }
 
     const verifiedAnswers: Record<string, string> = JSON.parse(jsonMatch[0])
-    console.log(`[verifyTextAnswers] Verified answers:`, JSON.stringify(verifiedAnswers))
+    debug(`[verifyTextAnswers] Verified answers:`, JSON.stringify(verifiedAnswers))
 
-    return problems.map(p => {
+    let mismatchCount = 0
+    const result = problems.map(p => {
       if (p.answerType !== 'text') return p
 
       const verifiedAnswer = verifiedAnswers[p.id]
       if (!verifiedAnswer) {
-        console.log(`[verifyTextAnswers] No verified answer for problem ${p.id}, keeping original: "${p.correctAnswer}"`)
+        debug(`[verifyTextAnswers] No verified answer for problem ${p.id}, keeping original`)
         return p
       }
 
@@ -150,15 +152,18 @@ IMPORTANT: Return ONLY the JSON object, no additional text.`
       const normalizedVerified = verifiedAnswer.toLowerCase().trim()
 
       if (normalizedOriginal !== normalizedVerified) {
-        console.log(`[verifyTextAnswers] MISMATCH for "${p.question}": original="${p.correctAnswer}" verified="${verifiedAnswer.trim()}" — using verified`)
+        mismatchCount++
+        debug(`[verifyTextAnswers] MISMATCH for "${p.question}": original="${p.correctAnswer}" verified="${verifiedAnswer.trim()}" — using verified`)
         return { ...p, correctAnswer: verifiedAnswer.trim() }
       }
 
-      console.log(`[verifyTextAnswers] Match for "${p.question}": "${p.correctAnswer}"`)
       return p
     })
+
+    console.log(`[verifyTextAnswers] Corrected ${mismatchCount}/${textProblems.length} text answers`)
+    return result
   } catch (error) {
-    console.log(`[verifyTextAnswers] Verification failed, using original answers:`, error)
+    console.error(`[verifyTextAnswers] Verification failed, using original answers:`, error)
     return problems
   }
 }
