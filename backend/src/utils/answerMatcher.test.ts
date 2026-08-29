@@ -128,3 +128,18 @@ describe('checkAnswerCorrect', () => {
     expect(checkAnswerCorrect('1/3', '1/2')).toBe(false)
   })
 })
+
+describe('percentage answers', () => {
+  it('accepts a percent-signed answer when the correct answer is bare', () => {
+    expect(checkAnswerCorrect('25%', '25')).toBe(true)
+  })
+
+  it('accepts a bare answer when the correct answer carries a percent sign', () => {
+    expect(checkAnswerCorrect('25', '25%')).toBe(true)
+  })
+
+  it('rejects a wrong percentage either way', () => {
+    expect(checkAnswerCorrect('24%', '25')).toBe(false)
+    expect(checkAnswerCorrect('24', '25%')).toBe(false)
+  })
+})

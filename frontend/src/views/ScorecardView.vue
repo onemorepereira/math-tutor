@@ -1,5 +1,6 @@
 <template>
   <div class="scorecard-view">
+    <ConfettiBurst v-if="isHighScore" />
     <div v-if="isLoading" class="loading">Loading your scorecard</div>
 
     <div v-else-if="scorecard" class="scorecard-container">
@@ -48,7 +49,12 @@
             v-for="attempt in incorrectAttempts"
             :key="attempt.problemId"
             class="problem-item card"
+            role="button"
+            tabindex="0"
+            :aria-expanded="expandedProblem === attempt.problemId"
             @click="toggleExplanation(attempt.problemId)"
+            @keydown.enter.prevent="toggleExplanation(attempt.problemId)"
+            @keydown.space.prevent="toggleExplanation(attempt.problemId)"
           >
             <div class="problem-header">
               <h3>{{ attempt.problem.question }}</h3>
@@ -120,6 +126,7 @@ import { useRouter } from 'vue-router'
 import { useGameStore } from '@/stores/game'
 import type { SolutionExplanation } from '@/types'
 import { formatClock } from '@/utils/time'
+import ConfettiBurst from '@/components/ConfettiBurst.vue'
 
 const router = useRouter()
 const gameStore = useGameStore()
@@ -134,6 +141,11 @@ const isLoading = computed(() => gameStore.isLoading)
 
 const incorrectAttempts = computed(() => {
   return scorecard.value?.attempts.filter(attempt => !attempt.isCorrect) || []
+})
+
+const isHighScore = computed(() => {
+  if (!scorecard.value || scorecard.value.maxPossibleScore === 0) return false
+  return scorecard.value.totalScore / scorecard.value.maxPossibleScore >= 0.9
 })
 
 onMounted(loadScorecard)
@@ -332,6 +344,11 @@ function goHome() {
 .problem-item:hover {
   transform: translateX(4px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.problem-item:focus-visible {
+  outline: 3px solid #667eea;
+  outline-offset: 2px;
 }
 
 .problem-header {

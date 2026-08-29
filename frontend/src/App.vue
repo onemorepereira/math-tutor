@@ -20,6 +20,8 @@
       <router-view />
     </main>
 
+    <ErrorToast />
+
     <footer class="app-footer">
       <p>&copy; 2025 Miguel Pereira | Learn Math the Fun Way!</p>
     </footer>
@@ -30,6 +32,7 @@
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import ErrorToast from '@/components/ErrorToast.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()

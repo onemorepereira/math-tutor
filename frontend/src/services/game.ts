@@ -22,6 +22,12 @@ export const gameService = {
     return response.data.session
   },
 
+  async getGameSession(sessionId: string): Promise<GameSession> {
+    const headers = await getAuthHeaders()
+    const response = await axios.get(`${API_URL}/api/game/sessions/${sessionId}`, { headers })
+    return response.data.session
+  },
+
   async requestHint(sessionId: string, problemId: string, hintNumber: 1 | 2): Promise<Hint> {
     const headers = await getAuthHeaders()
     const response = await axios.post(

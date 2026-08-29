@@ -6,7 +6,8 @@
  */
 
 export function normalizeAnswer(answer: string): string {
-  return answer.toString().toLowerCase().trim().replace(/\s+/g, '')
+  // A trailing percent sign is cosmetic ("25%" and "25" are the same answer)
+  return answer.toString().toLowerCase().trim().replace(/\s+/g, '').replace(/%$/, '')
 }
 
 export function gcd(a: number, b: number): number {

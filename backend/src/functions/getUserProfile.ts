@@ -34,7 +34,9 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         email: user.email,
         screenName: user.screenName,
         ageGroup: user.ageGroup,
-        createdAt: user.createdAt
+        createdAt: user.createdAt,
+        totalScore: user.totalScore ?? 0,
+        gamesPlayed: user.gamesPlayed ?? 0
       }
     })
   } catch (error) {

@@ -246,6 +246,43 @@ Resources:
       LogGroupName: !Sub /aws/lambda/${GetUserSessionsFunction}
       RetentionInDays: 7
 
+  GetGameSessionFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: makefile
+    Properties:
+      CodeUri: backend/
+      Handler: functions/getGameSession.handler
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:Query
+              Resource:
+                - !GetAtt UserTable.Arn
+                - !Sub ${UserTable.Arn}/index/*
+            - Effect: Allow
+              Action:
+                - dynamodb:GetItem
+              Resource: !GetAtt GameSessionTable.Arn
+      Events:
+        GetSession:
+          Type: Api
+          Properties:
+            Path: /api/game/sessions/{sessionId}
+            Method: get
+            RestApiId: !Ref MathTutorApi
+            Auth:
+              Authorizer: CognitoAuthorizer
+
+  GetGameSessionFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${GetGameSessionFunction}
+      RetentionInDays: 7
+
   CreateGameSessionFunction:
     Type: AWS::Serverless::Function
     Metadata:

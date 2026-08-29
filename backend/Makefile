@@ -76,3 +76,10 @@ build-UpdatePublicStatsCacheFunction:
 	cp -r dist/* $(ARTIFACTS_DIR)/
 	cp package*.json $(ARTIFACTS_DIR)/
 	cd $(ARTIFACTS_DIR) && $(NPM) install --production
+
+build-GetGameSessionFunction:
+	$(NPM) install
+	$(NPM) run build
+	cp -r dist/* $(ARTIFACTS_DIR)/
+	cp package*.json $(ARTIFACTS_DIR)/
+	cd $(ARTIFACTS_DIR) && $(NPM) install --production

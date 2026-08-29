@@ -5,13 +5,13 @@
     </div>
 
     <div v-else-if="currentProblem" class="game-container">
-      <div v-if="!feedback" class="game-header">
+      <div class="game-header">
         <div class="progress-info">
-          <h3>Problem {{ currentProblemNumber }} of {{ totalProblems }}</h3>
+          <h3>Problem {{ Math.min(currentProblemNumber, totalProblems) }} of {{ totalProblems }}</h3>
           <div class="progress-bar">
             <div
               class="progress-fill"
-              :style="{ width: `${(currentProblemNumber / totalProblems) * 100}%` }"
+              :style="{ width: `${(Math.min(currentProblemNumber, totalProblems) / totalProblems) * 100}%` }"
             ></div>
           </div>
         </div>
@@ -19,11 +19,7 @@
         <div class="game-stats">
           <div class="stat">
             <span class="stat-label">Score:</span>
-            <span class="stat-value">{{ currentSession?.totalScore || 0 }}</span>
-          </div>
-          <div class="stat">
-            <span class="stat-label">Time:</span>
-            <span class="stat-value">{{ formatClock(elapsedTime) }}</span>
+            <span class="stat-value" :class="{ 'score-pop': scorePopping }">{{ currentSession?.totalScore || 0 }}</span>
           </div>
         </div>
       </div>
@@ -41,7 +37,7 @@
             </div>
           </div>
 
-          <div class="answer-section">
+          <div v-if="!feedback" class="answer-section">
             <div class="form-group">
               <label for="answer">Your Answer:</label>
               <input
@@ -94,7 +90,7 @@
         <button @click="handleNextProblem" class="btn btn-primary">
           {{ currentProblemNumber > totalProblems ? 'View Scorecard' : 'Next Problem' }}
         </button>
-        <p v-if="feedback.type === 'success'" class="hint-text">Press Enter to continue</p>
+        <p class="hint-text">Press Enter to continue</p>
       </div>
     </div>
 
@@ -105,10 +101,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, computed, watch, onMounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { useGameStore } from '@/stores/game'
-import { formatClock } from '@/utils/time'
 
 const router = useRouter()
 const gameStore = useGameStore()
@@ -118,8 +113,8 @@ const isSubmitting = ref(false)
 const feedback = ref<{ type: string; message: string; details?: string } | null>(null)
 const feedbackCard = ref<HTMLDivElement | null>(null)
 const answerInput = ref<HTMLInputElement | null>(null)
-const elapsedTime = ref(0)
-let timerInterval: number | null = null
+const scorePopping = ref(false)
+let scorePopTimeout: number | null = null
 
 const currentProblem = computed(() => gameStore.currentProblem)
 const currentSession = computed(() => gameStore.currentSession)
@@ -144,30 +139,20 @@ onMounted(async () => {
     return
   }
 
-  startTimer()
-
   // Focus the answer input on initial load
   await nextTick()
   answerInput.value?.focus()
 })
 
-onUnmounted(() => {
-  stopTimer()
+// Briefly pop the score when it changes
+watch(() => currentSession.value?.totalScore, (newScore, oldScore) => {
+  if (newScore === undefined || oldScore === undefined || newScore === oldScore) return
+  scorePopping.value = true
+  if (scorePopTimeout !== null) clearTimeout(scorePopTimeout)
+  scorePopTimeout = window.setTimeout(() => {
+    scorePopping.value = false
+  }, 700)
 })
-
-function startTimer() {
-  elapsedTime.value = 0
-  timerInterval = window.setInterval(() => {
-    elapsedTime.value++
-  }, 1000)
-}
-
-function stopTimer() {
-  if (timerInterval) {
-    clearInterval(timerInterval)
-    timerInterval = null
-  }
-}
 
 async function handleHintRequest() {
   try {
@@ -199,24 +184,17 @@ async function handleSubmit() {
         message: 'Correct!',
         details: `You earned ${result.pointsEarned} points!`
       }
-
-      stopTimer()
-
-      // Focus the feedback card so Enter key works to advance
-      await nextTick()
-      feedbackCard.value?.focus()
     } else {
       feedback.value = {
         type: 'error',
         message: 'Not quite right',
-        details: 'Try again or click Next Problem to continue'
+        details: `The correct answer was ${result.correctAnswer}. You'll get the next one!`
       }
-
-      // Clear the input and refocus it so they can try again
-      userAnswer.value = ''
-      await nextTick()
-      answerInput.value?.focus()
     }
+
+    // Focus the feedback card so Enter advances to the next problem
+    await nextTick()
+    feedbackCard.value?.focus()
   } catch (error) {
     console.error('Failed to submit answer:', error)
     feedback.value = {
@@ -237,7 +215,6 @@ async function handleNextProblem() {
     router.push({ name: 'scorecard' })
   } else {
     await gameStore.loadNextProblem()
-    startTimer()
 
     // Focus the answer input for the next problem
     await nextTick()
@@ -316,6 +293,17 @@ async function handleNextProblem() {
   font-size: 1.5rem;
   font-weight: bold;
   color: #667eea;
+}
+
+.stat-value.score-pop {
+  animation: score-pop 0.7s ease;
+}
+
+@keyframes score-pop {
+  30% {
+    transform: scale(1.35);
+    color: #28a745;
+  }
 }
 
 .problem-card {

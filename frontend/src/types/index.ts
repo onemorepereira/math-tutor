@@ -18,6 +18,8 @@ export interface User {
   screenName: string
   ageGroup?: DifficultyLevel
   createdAt: string
+  totalScore?: number
+  gamesPlayed?: number
 }
 
 export type AnswerType = 'numeric' | 'text'
@@ -63,6 +65,8 @@ export interface GameSession {
   totalScore: number
   totalTimeSeconds: number
   isCompleted: boolean
+  /** Highest hint number issued per problemId, recorded server-side */
+  hintsRequested?: Record<string, number>
 }
 
 export interface AnswerResult {
