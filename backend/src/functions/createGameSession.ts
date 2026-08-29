@@ -2,7 +2,7 @@ import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda'
 import { PutCommand, QueryCommand } from '@aws-sdk/lib-dynamodb'
 import { v4 as uuidv4 } from 'uuid'
 import { dynamodb, USER_TABLE, GAME_SESSION_TABLE } from '../utils/dynamodb.js'
-import { generateMathProblems, verifyTextAnswers } from '../utils/bedrock.js'
+import { generateMathProblems, verifyProblemAnswers } from '../utils/bedrock.js'
 import { sanitizeError, createSuccessResponse, createErrorResponse } from '../utils/errorHandler.js'
 import { validateDifficulty, validateProblemCount, validateSubcategories } from '../utils/validation.js'
 
@@ -54,8 +54,9 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     const user = userResult.Items[0]
 
-    // Generate math problems using Bedrock
-    const generatedProblems = await generateMathProblems(difficulty, problemCount, subcategories)
+    // Generate a few spares so problems that fail verification can be dropped
+    // without shortchanging the requested problem count
+    const generatedProblems = await generateMathProblems(difficulty, problemCount + 3, subcategories)
 
     // Add IDs to problems
     const problemsWithIds = generatedProblems.map((p: any) => ({
@@ -68,8 +69,14 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       answerType: p.answerType || 'numeric'
     }))
 
-    // Verify text-answer problems by independently solving them
-    const problems = await verifyTextAnswers(problemsWithIds)
+    // Independently re-solve every problem and drop any whose answer disagrees
+    const verifiedProblems = await verifyProblemAnswers(problemsWithIds)
+
+    if (verifiedProblems.length === 0) {
+      return createErrorResponse(503, 'Could not prepare problems right now, please try again')
+    }
+
+    const problems = verifiedProblems.slice(0, problemCount)
 
     const sessionId = uuidv4()
     const session = {
