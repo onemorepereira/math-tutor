@@ -8,7 +8,8 @@ vi.mock('@/services/game', () => ({
     requestHint: vi.fn(),
     submitAnswer: vi.fn(),
     endGameSession: vi.fn(),
-    getSolutionExplanation: vi.fn()
+    getSolutionExplanation: vi.fn(),
+    getGameSession: vi.fn()
   }
 }))
 
@@ -154,4 +155,37 @@ test('submitAnswer without an active problem resolves to undefined and calls no 
 
   expect(result).toBeUndefined()
   expect(gameService.submitAnswer).not.toHaveBeenCalled()
+})
+
+test('resumeSession rebuilds mid-game state and seeds hints from the server record', async () => {
+  const store = useGameStore()
+  const session = makeSession('resumed')
+  session.attempts = [makeAttempt(session.problems[0])]
+  session.currentProblemIndex = 1
+  ;(session as unknown as { hintsRequested: Record<string, number> }).hintsRequested = {
+    [session.problems[1].id]: 1
+  }
+  vi.mocked(gameService.getGameSession).mockResolvedValue(session)
+
+  await store.resumeSession('resumed')
+
+  expect(store.currentSession?.sessionId).toBe('resumed')
+  expect(store.currentProblem?.id).toBe(session.problems[1].id)
+  expect(store.hintsUsedCount).toBe(1)
+  expect(store.currentAttempt?.problemId).toBe(session.problems[1].id)
+  expect(store.scorecard).toBeNull()
+})
+
+test('resuming a session whose problems are all answered finalizes it into a scorecard', async () => {
+  const store = useGameStore()
+  const session = makeSession('finished')
+  session.attempts = [makeAttempt(session.problems[0]), makeAttempt(session.problems[1])]
+  session.currentProblemIndex = 2
+  vi.mocked(gameService.getGameSession).mockResolvedValue(session)
+  const scorecard = { sessionId: 'finished', totalScore: 30 }
+  vi.mocked(gameService.endGameSession).mockResolvedValue(scorecard as never)
+
+  await store.resumeSession('finished')
+
+  expect(store.scorecard).toEqual(scorecard)
 })

@@ -39,6 +39,24 @@ export const useGameStore = defineStore('game', () => {
     }, 'Failed to start game')
   }
 
+  async function resumeSession(sessionId: string) {
+    scorecard.value = null
+    return withLoading(async () => {
+      const session = await gameService.getGameSession(sessionId)
+      currentSession.value = session
+      await loadNextProblem()
+
+      // Restore the current problem's hint count from the server-side record
+      // (hint texts are not stored, but the score deduction is)
+      if (currentProblem.value) {
+        const recorded = session.hintsRequested?.[currentProblem.value.id] ?? 0
+        hintsUsedCount.value = Math.min(recorded, 2)
+      }
+
+      return session
+    }, 'Failed to resume game')
+  }
+
   async function loadNextProblem() {
     if (!currentSession.value) return
 
@@ -178,6 +196,7 @@ export const useGameStore = defineStore('game', () => {
     canRequestHint,
     hintsUsedCount,
     startNewGame,
+    resumeSession,
     loadNextProblem,
     requestHint,
     submitAnswer,

@@ -1,5 +1,6 @@
 <template>
   <div class="stats-view">
+    <GameLoadingOverlay v-if="startingTopic !== null" />
     <div class="page-header">
       <router-link to="/" class="back-link">← Back to Home</router-link>
       <h2>Your Progress</h2>
@@ -189,7 +190,9 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { authService } from '@/services/auth'
+import { useAuthStore } from '@/stores/auth'
 import { useGameStore } from '@/stores/game'
+import GameLoadingOverlay from '@/components/GameLoadingOverlay.vue'
 
 const router = useRouter()
 const gameStore = useGameStore()
@@ -313,7 +316,9 @@ async function startTopicGame(topic: string) {
   try {
     startingTopic.value = topic
     gameStore.resetGame()
-    await gameStore.startNewGame('elementary', 10, [topic])
+    // Practice at the player's own level, not a fixed one
+    const difficulty = useAuthStore().user?.ageGroup ?? 'elementary'
+    await gameStore.startNewGame(difficulty, 10, [topic])
     router.push({ name: 'game' })
   } catch (err) {
     console.error('Failed to start topic game:', err)

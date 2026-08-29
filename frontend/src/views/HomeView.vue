@@ -18,32 +18,60 @@
       <div class="welcome-card card">
         <h2>Welcome back, {{ user?.screenName }}!</h2>
         <p>Ready to solve some math problems?</p>
+        <p v-if="belt" class="belt-chip" :title="beltProgress">
+          {{ belt.emoji }} {{ belt.name }} Belt<span v-if="beltProgress" class="belt-progress"> · {{ beltProgress }}</span>
+        </p>
         <router-link to="/stats" class="stats-link">📊 View Your Progress</router-link>
+      </div>
+
+      <div v-if="resumable" class="resume-card card">
+        <div class="resume-text">
+          <h3>⏸️ You have an unfinished game</h3>
+          <p>{{ resumableLabel }}</p>
+        </div>
+        <div class="resume-actions">
+          <button @click="continueGame" class="btn btn-primary" :disabled="isLoadingGame">Continue</button>
+          <button @click="resumable = null" class="btn btn-secondary" :disabled="isLoadingGame">Not now</button>
+        </div>
       </div>
 
       <!-- Step 1: Select Difficulty -->
       <div v-if="!selectedDifficulty" class="difficulty-selection">
         <h3>Select Difficulty Level</h3>
         <div class="difficulty-cards">
-          <div class="difficulty-card" @click="selectDifficulty('elementary')">
+          <div
+            class="difficulty-card"
+            role="button"
+            tabindex="0"
+            @click="selectDifficulty('elementary')"
+            @keydown.enter.prevent="selectDifficulty('elementary')"
+            @keydown.space.prevent="selectDifficulty('elementary')"
+          >
             <h4>Elementary</h4>
             <p>Ages 6-10</p>
             <p>Basic arithmetic, addition, subtraction</p>
-            <button class="btn btn-primary">Select</button>
+            <span class="btn btn-primary">Select</span>
           </div>
 
-          <div class="difficulty-card disabled" title="Coming soon!">
+          <div
+            class="difficulty-card"
+            role="button"
+            tabindex="0"
+            @click="selectDifficulty('middle')"
+            @keydown.enter.prevent="selectDifficulty('middle')"
+            @keydown.space.prevent="selectDifficulty('middle')"
+          >
             <h4>Middle School</h4>
             <p>Ages 11-14</p>
             <p>Fractions, decimals, pre-algebra</p>
-            <button class="btn btn-secondary" disabled>Coming Soon</button>
+            <span class="btn btn-primary">Select</span>
           </div>
 
-          <div class="difficulty-card disabled" title="Coming soon!">
+          <div class="difficulty-card disabled" title="Coming soon!" aria-disabled="true">
             <h4>High School</h4>
             <p>Ages 15-18</p>
             <p>Algebra, geometry, advanced topics</p>
-            <button class="btn btn-secondary" disabled>Coming Soon</button>
+            <span class="btn btn-secondary">Coming Soon</span>
           </div>
         </div>
       </div>
@@ -101,18 +129,32 @@
         </div>
       </div>
     </div>
+
+    <GameLoadingOverlay v-if="isLoadingGame" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useGameStore } from '@/stores/game'
+import { authService } from '@/services/auth'
 import type { DifficultyLevel } from '@/types'
 import { SUBCATEGORIES } from '@/types'
+import { beltRank } from '@/utils/belt'
 import Leaderboard from '@/components/Leaderboard.vue'
 import ActivityCalendar from '@/components/ActivityCalendar.vue'
+import GameLoadingOverlay from '@/components/GameLoadingOverlay.vue'
+
+interface ResumableSession {
+  sessionId: string
+  difficulty: string
+  startTime: string
+  problemCount: number
+  correctCount: number
+  isCompleted: boolean
+}
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -124,6 +166,50 @@ const user = computed(() => authStore.user)
 const selectedDifficulty = ref<DifficultyLevel | null>(null)
 const selectedSubcategories = ref<string[]>([])
 const problemCount = ref<number>(10)
+const resumable = ref<ResumableSession | null>(null)
+
+const belt = computed(() => {
+  const score = user.value?.totalScore
+  return typeof score === 'number' ? beltRank(score) : null
+})
+
+const beltProgress = computed(() => {
+  if (!belt.value?.nextAt || user.value?.totalScore === undefined) return ''
+  return `${belt.value.nextAt - user.value.totalScore} points to the next belt`
+})
+
+const resumableLabel = computed(() => {
+  if (!resumable.value) return ''
+  const difficultyName = resumable.value.difficulty === 'middle' ? 'Middle School' : resumable.value.difficulty === 'high' ? 'High School' : 'Elementary'
+  return `${difficultyName} · started ${new Date(resumable.value.startTime).toLocaleString()}`
+})
+
+onMounted(async () => {
+  if (!isAuthenticated.value || gameStore.currentSession) return
+
+  try {
+    const stats = await authService.getUserStats()
+    const dayAgo = Date.now() - 24 * 60 * 60 * 1000
+    resumable.value = (stats.sessions as ResumableSession[] | undefined)?.find(
+      (s) => !s.isCompleted && new Date(s.startTime).getTime() > dayAgo
+    ) ?? null
+  } catch {
+    // The resume banner is a convenience; never block the dashboard on it
+    resumable.value = null
+  }
+})
+
+async function continueGame() {
+  if (!resumable.value) return
+
+  try {
+    await gameStore.resumeSession(resumable.value.sessionId)
+    router.push({ name: gameStore.scorecard ? 'scorecard' : 'game' })
+  } catch (error) {
+    console.error('Failed to resume game:', error)
+    resumable.value = null
+  }
+}
 
 const availableSubcategories = computed(() => {
   if (!selectedDifficulty.value) return []
@@ -258,6 +344,53 @@ async function startGame() {
 .stats-link:hover {
   background: #5568d3;
   transform: translateY(-2px);
+}
+
+.belt-chip {
+  display: inline-block;
+  margin: 0.5rem 0;
+  padding: 0.35rem 0.85rem;
+  background: #f4f1fb;
+  border: 1px solid #d9d2ef;
+  border-radius: 999px;
+  font-weight: 600;
+  color: #4a3f6b;
+}
+
+.belt-progress {
+  font-weight: 400;
+  color: #6c757d;
+  font-size: 0.9rem;
+}
+
+.resume-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  border-left: 4px solid #667eea;
+  margin-bottom: 1.5rem;
+}
+
+.resume-text h3 {
+  margin-bottom: 0.25rem;
+  color: #333;
+}
+
+.resume-text p {
+  color: #6c757d;
+  font-size: 0.9rem;
+}
+
+.resume-actions {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.difficulty-card:focus-visible {
+  outline: 3px solid #667eea;
+  outline-offset: 2px;
 }
 
 .difficulty-selection {
