@@ -9,18 +9,7 @@ appear in this document.
 
 ## Product Overview
 
-```mermaid
-flowchart LR
-    kid(["🧒 Player"]) --> cf["CloudFront CDN"]
-    cf --> s3["S3<br/>Vue 3 SPA"]
-    kid -->|"sign in"| cognito["Amazon Cognito<br/>User Pool"]
-    kid -->|"HTTPS + JWT"| api["API Gateway"]
-    api --> lambda["Lambda<br/>Game & User API"]
-    lambda --> ddb[("DynamoDB")]
-    lambda --> bedrock["Amazon Bedrock<br/>Nova 2 Lite"]
-
-    bedrock -.->|"problems, hints,<br/>explanations"| lambda
-```
+![Number Ninja — Product Overview](diagrams/number-ninja-overview/number-ninja-overview.svg)
 
 A player loads the Vue single-page app from CloudFront, signs in with Cognito,
 and plays 10-problem game sessions. Every game API call carries the player's
@@ -29,69 +18,14 @@ scoring state server-side in DynamoDB.
 
 ## Detailed Architecture
 
-```mermaid
-flowchart TB
-    subgraph client["Client"]
-        spa["Vue 3 + Pinia SPA<br/>(S3 + CloudFront, OAC)"]
-    end
+![Number Ninja — Detailed Architecture](diagrams/number-ninja-architecture/number-ninja-architecture.svg)
 
-    subgraph auth["Authentication"]
-        cognito["Cognito User Pool<br/>email sign-up + verification"]
-    end
+Every authenticated function resolves the caller's internal `userId` through
+the Users table's `cognitoId` GSI before touching session data; those lookup
+edges are omitted from the diagram for readability.
 
-    subgraph gateway["API Gateway (throttled)"]
-        authz{{"Cognito Authorizer"}}
-    end
-
-    subgraph lambdas["Lambda Functions (Node.js 22)"]
-        register["registerUser"]
-        profile["getUserProfile"]
-        sessions["getUserSessions"]
-        create["createGameSession"]
-        submit["submitAnswer"]
-        hint["requestHint"]
-        explain["getSolutionExplanation"]
-        endgame["endGameSession"]
-        leaderboard["getLeaderboard"]
-        activity["getActivityStats"]
-        cache["updatePublicStatsCache<br/>(scheduled, 15 min)"]
-    end
-
-    subgraph data["DynamoDB"]
-        users[("Users<br/>PK userId · GSI cognitoId")]
-        gsessions[("Game Sessions<br/>PK sessionId · GSI userId")]
-        pubcache[("Public Stats Cache<br/>PK cacheKey · TTL")]
-    end
-
-    subgraph ai["Amazon Bedrock"]
-        nova["Nova 2 Lite"]
-    end
-
-    spa --> cognito
-    spa --> authz
-    spa -->|"public, no auth"| leaderboard
-    spa -->|"public, no auth"| activity
-
-    authz --> register & profile & sessions & create & submit & hint & explain & endgame
-
-    register --> users
-    profile --> users
-    sessions --> users & gsessions
-    create --> users & gsessions
-    submit --> users & gsessions
-    hint --> users & gsessions
-    explain --> users & gsessions
-    endgame --> users & gsessions
-
-    create --> nova
-    hint --> nova
-    explain --> nova
-
-    leaderboard --> pubcache
-    activity --> pubcache
-    cache -->|"scan + aggregate"| users & gsessions
-    cache --> pubcache
-```
+Diagram sources live next to the exports as `.vizc.json` files
+(`docs/diagrams/*/`) and can be re-rendered with VizCharter.
 
 ## Key Design Points
 
