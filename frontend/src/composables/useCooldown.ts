@@ -1,4 +1,4 @@
-import { ref, onUnmounted } from 'vue'
+import { ref, computed, onUnmounted } from 'vue'
 
 /**
  * A simple countdown cooldown (e.g. for "resend code" buttons).
@@ -7,8 +7,8 @@ import { ref, onUnmounted } from 'vue'
  * Call `startCooldown()` to begin. The interval is cleared automatically on unmount.
  */
 export function useCooldown(durationSeconds = 60) {
-  const cooldownActive = ref(false)
   const cooldownSeconds = ref(0)
+  const cooldownActive = computed(() => cooldownSeconds.value > 0)
   let interval: ReturnType<typeof setInterval> | null = null
 
   function clear() {
@@ -20,12 +20,10 @@ export function useCooldown(durationSeconds = 60) {
 
   function startCooldown() {
     clear()
-    cooldownActive.value = true
     cooldownSeconds.value = durationSeconds
     interval = setInterval(() => {
       cooldownSeconds.value--
       if (cooldownSeconds.value <= 0) {
-        cooldownActive.value = false
         clear()
       }
     }, 1000)

@@ -70,9 +70,11 @@ const { cooldownActive, cooldownSeconds, startCooldown } = useCooldown(60)
 onMounted(() => {
   email.value = route.query.email as string || ''
   ageGroup.value = route.query.ageGroup as string || ''
-  password.value = sessionStorage.getItem('pendingVerificationPassword') || ''
+  // Held in memory only; empty after a refresh, in which case verification
+  // still works but finishes on the login page instead of auto-logging in
+  password.value = authStore.pendingPassword || ''
 
-  if (!email.value || !ageGroup.value || !password.value) {
+  if (!email.value || !ageGroup.value) {
     router.push({ name: 'register' })
   }
 })
@@ -88,10 +90,14 @@ async function handleVerify() {
 
   try {
     isLoading.value = true
-    await authStore.confirmEmail(email.value, code.value, password.value, ageGroup.value)
-    // Clear password from sessionStorage after successful verification
-    sessionStorage.removeItem('pendingVerificationPassword')
-    router.push({ name: 'home' })
+    if (password.value) {
+      await authStore.confirmEmail(email.value, code.value, password.value, ageGroup.value)
+      authStore.clearPendingPassword()
+      router.push({ name: 'home' })
+    } else {
+      await authStore.confirmEmailOnly(email.value, code.value)
+      router.push({ name: 'login', query: { verified: '1' } })
+    }
   } catch (err: any) {
     if (err.message?.includes('Code mismatch') || err.message?.includes('Invalid')) {
       error.value = 'Invalid verification code. Please try again.'

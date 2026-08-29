@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import type { GameSession, MathProblem, ProblemAttempt, Hint, Scorecard, DifficultyLevel } from '@/types'
+import type { GameSession, MathProblem, ProblemAttempt, Hint, Scorecard, DifficultyLevel, AnswerResult } from '@/types'
 import { gameService } from '@/services/game'
 import { useLoadingState } from '@/composables/useLoadingState'
 
@@ -66,27 +66,31 @@ export const useGameStore = defineStore('game', () => {
   }
 
   async function requestHint() {
-    if (!currentProblem.value || !canRequestHint.value || !currentSession.value) {
+    const session = currentSession.value
+    const problem = currentProblem.value
+    if (!problem || !canRequestHint.value || !session) {
       return null
     }
 
     return withLoading(async () => {
       const hintNumber = (hintsUsedCount.value + 1) as 1 | 2
-      const hint = await gameService.requestHint(
-        currentSession.value!.sessionId,
-        currentProblem.value!.id,
-        hintNumber
-      )
+      const hint = await gameService.requestHint(session.sessionId, problem.id, hintNumber)
 
-      hintsReceived.value.push(hint)
-      hintsUsedCount.value++
+      // Ignore responses that arrive after the problem has changed
+      if (currentProblem.value === problem) {
+        hintsReceived.value.push(hint)
+        hintsUsedCount.value++
+      }
 
       return hint
-    }, 'Failed to get hint', { resetError: false })
+    }, 'Failed to get hint')
   }
 
-  async function submitAnswer(answer: string) {
-    if (!currentProblem.value || !currentSession.value || !currentAttempt.value) {
+  async function submitAnswer(answer: string): Promise<AnswerResult | undefined> {
+    const session = currentSession.value
+    const problem = currentProblem.value
+    const attempt = currentAttempt.value
+    if (!problem || !session || !attempt) {
       return
     }
 
@@ -94,52 +98,60 @@ export const useGameStore = defineStore('game', () => {
       const timeSpent = Math.floor((Date.now() - problemStartTime.value) / 1000)
 
       const result = await gameService.submitAnswer(
-        currentSession.value!.sessionId,
-        currentProblem.value!.id,
+        session.sessionId,
+        problem.id,
         answer,
         hintsUsedCount.value,
         timeSpent
       )
 
-      currentAttempt.value = {
-        ...currentAttempt.value!,
-        userAnswer: answer,
-        isCorrect: result.isCorrect,
-        hintsUsed: hintsUsedCount.value,
-        timeSpentSeconds: timeSpent,
-        pointsEarned: result.pointsEarned,
-        endTime: Date.now()
-      }
+      // Ignore responses that arrive after the session was reset or replaced
+      if (currentSession.value === session) {
+        currentAttempt.value = {
+          ...attempt,
+          userAnswer: answer,
+          isCorrect: result.isCorrect,
+          hintsUsed: hintsUsedCount.value,
+          timeSpentSeconds: timeSpent,
+          pointsEarned: result.pointsEarned,
+          endTime: Date.now()
+        }
 
-      currentSession.value!.attempts.push(currentAttempt.value)
-      currentSession.value!.currentProblemIndex++
-      currentSession.value!.totalScore += result.pointsEarned
-      currentSession.value!.totalTimeSeconds += timeSpent
+        session.attempts.push(currentAttempt.value)
+        session.currentProblemIndex++
+        session.totalScore += result.pointsEarned
+        session.totalTimeSeconds += timeSpent
+      }
 
       return result
     }, 'Failed to submit answer')
   }
 
   async function endGame() {
-    if (!currentSession.value) return
+    const session = currentSession.value
+    if (!session) return
 
     return withLoading(async () => {
-      const finalScorecard = await gameService.endGameSession(currentSession.value!.sessionId)
-      scorecard.value = finalScorecard
-      currentSession.value!.isCompleted = true
-      currentProblem.value = null
+      const finalScorecard = await gameService.endGameSession(session.sessionId)
+
+      // Ignore responses that arrive after the session was reset or replaced
+      if (currentSession.value === session) {
+        scorecard.value = finalScorecard
+        session.isCompleted = true
+        currentProblem.value = null
+      }
+
       return finalScorecard
-    }, 'Failed to end game', { resetError: false })
+    }, 'Failed to end game')
   }
 
   async function getSolutionExplanation(problemId: string) {
-    if (!currentSession.value) return null
+    const session = currentSession.value
+    if (!session) return null
 
-    return withLoading(
-      () => gameService.getSolutionExplanation(currentSession.value!.sessionId, problemId),
-      'Failed to get explanation',
-      { resetError: false }
-    )
+    // No withLoading here: explanations have their own loading UI in the view,
+    // and the store-wide isLoading gates whole-page loading states
+    return gameService.getSolutionExplanation(session.sessionId, problemId)
   }
 
   function resetGame() {

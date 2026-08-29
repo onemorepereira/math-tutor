@@ -75,7 +75,7 @@
               <button
                 @click="handleSubmit"
                 class="btn btn-primary"
-                :disabled="!userAnswer.trim() || isSubmitting"
+                :disabled="!userAnswer.trim() || isSubmitting || isLoading"
               >
                 <span v-if="isSubmitting">
                   <span class="spinner"></span>
@@ -188,6 +188,10 @@ async function handleSubmit() {
 
   try {
     const result = await gameStore.submitAnswer(userAnswer.value)
+
+    if (!result) {
+      return
+    }
 
     if (result.isCorrect) {
       feedback.value = {

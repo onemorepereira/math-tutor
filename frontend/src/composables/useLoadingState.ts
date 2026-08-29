@@ -5,9 +5,6 @@ import { ref } from 'vue'
  *
  * Wrap an async operation with `withLoading`: it toggles `isLoading`, captures a
  * sanitized error message on failure (then re-throws), and clears `isLoading` when done.
- *
- * Pass `{ resetError: false }` to keep any existing error message visible while the
- * operation runs (matches a few call sites that intentionally don't reset on start).
  */
 export function useLoadingState() {
   const isLoading = ref(false)
@@ -15,12 +12,10 @@ export function useLoadingState() {
 
   async function withLoading<T>(
     fn: () => Promise<T>,
-    fallbackMessage = 'Something went wrong',
-    options: { resetError?: boolean } = {}
+    fallbackMessage = 'Something went wrong'
   ): Promise<T> {
-    const { resetError = true } = options
     isLoading.value = true
-    if (resetError) error.value = null
+    error.value = null
 
     try {
       return await fn()

@@ -7,6 +7,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vue-tsc && vite build",
+    "test": "vitest run",
     "build:prod": "vite build",
     "preview": "vite preview"
   },
