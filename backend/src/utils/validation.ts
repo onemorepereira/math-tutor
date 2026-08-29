@@ -12,6 +12,7 @@ const VALID_TOPICS = [
   'Decimals',
   'Percentages',
   'Algebra',
+  'Basic Algebra',
   'Geometry',
   'Trigonometry',
   'Word Problems',
