@@ -81,6 +81,14 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       return createErrorResponse(403, 'Forbidden')
     }
 
+    if (session.isCompleted) {
+      return createErrorResponse(409, 'Game session is already completed')
+    }
+
+    if (session.attempts.some((a: any) => a.problemId === problemId)) {
+      return createErrorResponse(409, 'This problem has already been answered')
+    }
+
     // Find the problem
     const problem = session.problems.find((p: any) => p.id === problemId)
 
@@ -91,10 +99,14 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     // Check if answer is correct (handles exact match and fraction equivalence)
     const isCorrect = checkAnswerCorrect(answer, problem.correctAnswer)
 
+    // Hints are counted from the server-side record written by requestHint;
+    // the client-supplied hintsUsed is accepted for API compatibility but not trusted.
+    const hintsRecorded = Math.min(session.hintsRequested?.[problemId] ?? 0, 2)
+
     // Calculate points
     let pointsEarned = 0
     if (isCorrect) {
-      pointsEarned = problem.maxPoints - (hintsUsed * 5)
+      pointsEarned = problem.maxPoints - (hintsRecorded * 5)
       pointsEarned = Math.max(pointsEarned, 0) // Ensure points don't go negative
     }
 
@@ -104,28 +116,34 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       problem,
       userAnswer: answer,
       isCorrect,
-      hintsUsed,
+      hintsUsed: hintsRecorded,
       timeSpentSeconds: timeSpent,
       pointsEarned,
       timestamp: new Date().toISOString()
     }
 
-    // Update session
-    const newAttempts = [...session.attempts, attempt]
-    const newTotalScore = session.totalScore + pointsEarned
-    const newTotalTime = session.totalTimeSeconds + timeSpent
-
-    await dynamodb.send(new UpdateCommand({
-      TableName: GAME_SESSION_TABLE,
-      Key: { sessionId },
-      UpdateExpression: 'SET attempts = :attempts, totalScore = :totalScore, totalTimeSeconds = :totalTime, currentProblemIndex = :currentIndex',
-      ExpressionAttributeValues: {
-        ':attempts': newAttempts,
-        ':totalScore': newTotalScore,
-        ':totalTime': newTotalTime,
-        ':currentIndex': session.currentProblemIndex + 1
+    // Append atomically, guarded against concurrent submissions for the same session
+    try {
+      await dynamodb.send(new UpdateCommand({
+        TableName: GAME_SESSION_TABLE,
+        Key: { sessionId },
+        UpdateExpression: 'SET attempts = list_append(attempts, :newAttempt), totalScore = totalScore + :points, totalTimeSeconds = totalTimeSeconds + :time, currentProblemIndex = currentProblemIndex + :one',
+        ConditionExpression: 'size(attempts) = :expectedAttempts AND isCompleted = :notCompleted',
+        ExpressionAttributeValues: {
+          ':newAttempt': [attempt],
+          ':points': pointsEarned,
+          ':time': timeSpent,
+          ':one': 1,
+          ':expectedAttempts': session.attempts.length,
+          ':notCompleted': false
+        }
+      }))
+    } catch (updateError: any) {
+      if (updateError?.name === 'ConditionalCheckFailedException') {
+        return createErrorResponse(409, 'Conflicting submission, please retry')
       }
-    }))
+      throw updateError
+    }
 
     return createSuccessResponse({
       isCorrect,

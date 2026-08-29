@@ -67,18 +67,34 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       attempts: session.attempts
     }
 
-    // Mark session as completed
-    await dynamodb.send(new UpdateCommand({
-      TableName: GAME_SESSION_TABLE,
-      Key: { sessionId },
-      UpdateExpression: 'SET isCompleted = :completed, endTime = :endTime',
-      ExpressionAttributeValues: {
-        ':completed': true,
-        ':endTime': new Date().toISOString()
-      }
-    }))
+    // Ending an already-completed session is a no-op: return the scorecard
+    // without crediting user stats again (prevents score replay)
+    if (session.isCompleted) {
+      return createSuccessResponse({ scorecard })
+    }
 
-    // Update user stats
+    // Mark session as completed; the condition ensures only one caller wins
+    try {
+      await dynamodb.send(new UpdateCommand({
+        TableName: GAME_SESSION_TABLE,
+        Key: { sessionId },
+        UpdateExpression: 'SET isCompleted = :completed, endTime = :endTime',
+        ConditionExpression: 'isCompleted = :notCompleted',
+        ExpressionAttributeValues: {
+          ':completed': true,
+          ':notCompleted': false,
+          ':endTime': new Date().toISOString()
+        }
+      }))
+    } catch (updateError: any) {
+      if (updateError?.name === 'ConditionalCheckFailedException') {
+        // A concurrent call completed the session and credited the user
+        return createSuccessResponse({ scorecard })
+      }
+      throw updateError
+    }
+
+    // Update user stats — reached only by the caller that completed the session
     await dynamodb.send(new UpdateCommand({
       TableName: USER_TABLE,
       Key: { userId: user.userId },
