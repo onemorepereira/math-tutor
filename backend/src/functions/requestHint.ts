@@ -1,5 +1,5 @@
 import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda'
-import { GetCommand, QueryCommand } from '@aws-sdk/lib-dynamodb'
+import { GetCommand, QueryCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb'
 import { dynamodb, USER_TABLE, GAME_SESSION_TABLE } from '../utils/dynamodb.js'
 import { generateHint } from '../utils/bedrock.js'
 import { sanitizeError, createSuccessResponse, createErrorResponse } from '../utils/errorHandler.js'
@@ -69,6 +69,14 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       return createErrorResponse(403, 'Forbidden')
     }
 
+    if (session.isCompleted) {
+      return createErrorResponse(409, 'Game session is already completed')
+    }
+
+    if (session.attempts.some((a: any) => a.problemId === problemId)) {
+      return createErrorResponse(409, 'This problem has already been answered')
+    }
+
     // Find the problem
     const problem = session.problems.find((p: any) => p.id === problemId)
 
@@ -83,6 +91,22 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       hintNumber,
       user.ageGroup
     )
+
+    // Record the hint on the session so submitAnswer scores the penalty
+    // server-side; keep the highest hint number issued per problem
+    const hintsRequested = {
+      ...(session.hintsRequested ?? {}),
+      [problemId]: Math.max(session.hintsRequested?.[problemId] ?? 0, hintNumber)
+    }
+
+    await dynamodb.send(new UpdateCommand({
+      TableName: GAME_SESSION_TABLE,
+      Key: { sessionId },
+      UpdateExpression: 'SET hintsRequested = :hintsRequested',
+      ExpressionAttributeValues: {
+        ':hintsRequested': hintsRequested
+      }
+    }))
 
     const hint = {
       hintNumber,

@@ -4,6 +4,9 @@
       <h2>Welcome Back!</h2>
       <p class="subtitle">Login to continue your math journey</p>
 
+      <div v-if="justVerified" class="success-message">
+        Your email is verified! Log in to start playing.
+      </div>
       <div v-if="error" class="error-message">{{ error }}</div>
 
       <form @submit.prevent="handleLogin">
@@ -47,12 +50,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, computed } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 
 const router = useRouter()
+const route = useRoute()
 const authStore = useAuthStore()
+
+const justVerified = computed(() => route.query.verified === '1')
 
 const email = ref('')
 const password = ref('')

@@ -103,6 +103,11 @@
       </div>
     </div>
 
+    <div v-else-if="loadError" class="error-message">
+      <p>{{ loadError }}</p>
+      <button @click="loadScorecard" class="btn btn-primary">Try Again</button>
+    </div>
+
     <div v-else class="error-message">
       No scorecard available. Please complete a game first.
     </div>
@@ -122,6 +127,7 @@ const gameStore = useGameStore()
 const expandedProblem = ref<string | null>(null)
 const currentExplanation = ref<SolutionExplanation | null>(null)
 const loadingExplanation = ref(false)
+const loadError = ref<string | null>(null)
 
 const scorecard = computed(() => gameStore.scorecard)
 const isLoading = computed(() => gameStore.isLoading)
@@ -130,15 +136,22 @@ const incorrectAttempts = computed(() => {
   return scorecard.value?.attempts.filter(attempt => !attempt.isCorrect) || []
 })
 
-onMounted(async () => {
-  if (!scorecard.value) {
-    if (gameStore.currentSession && !gameStore.currentSession.isCompleted) {
+onMounted(loadScorecard)
+
+async function loadScorecard() {
+  if (scorecard.value) return
+
+  if (gameStore.currentSession && !gameStore.currentSession.isCompleted) {
+    loadError.value = null
+    try {
       await gameStore.endGame()
-    } else {
-      router.push({ name: 'home' })
+    } catch {
+      loadError.value = 'We could not load your scorecard. Please try again.'
     }
+  } else {
+    router.push({ name: 'home' })
   }
-})
+}
 
 function getScoreMessage(): string {
   if (!scorecard.value) return ''

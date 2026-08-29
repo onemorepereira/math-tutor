@@ -95,8 +95,8 @@ async function handleRegister() {
   try {
     isLoading.value = true
     await authStore.register(email.value, password.value, ageGroup.value)
-    // Temporarily store password in sessionStorage for auto-login after verification
-    sessionStorage.setItem('pendingVerificationPassword', password.value)
+    // Keep the password in memory only, for auto-login after verification
+    authStore.setPendingPassword(password.value)
     // Navigate to email verification page
     router.push({
       name: 'verify-email',

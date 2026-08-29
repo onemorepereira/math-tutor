@@ -1,5 +1,5 @@
 import axios from 'axios'
-import type { GameSession, Hint, Scorecard, SolutionExplanation, DifficultyLevel } from '@/types'
+import type { GameSession, Hint, Scorecard, SolutionExplanation, DifficultyLevel, AnswerResult } from '@/types'
 import { authService } from './auth'
 
 const API_URL = import.meta.env.VITE_API_URL || '/api'
@@ -38,7 +38,7 @@ export const gameService = {
     answer: string,
     hintsUsed: number,
     timeSpent: number
-  ) {
+  ): Promise<AnswerResult> {
     const headers = await getAuthHeaders()
     const response = await axios.post(
       `${API_URL}/api/game/sessions/${sessionId}/problems/${problemId}/submit`,

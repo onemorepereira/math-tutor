@@ -9,6 +9,19 @@ export const useAuthStore = defineStore('auth', () => {
   const isAuthenticated = ref(false)
   const { isLoading, error, withLoading } = useLoadingState()
 
+  // Held in memory only (never in storage) between sign-up and email
+  // verification so the verify step can auto-login; lost on refresh, in which
+  // case verification falls back to a confirm-then-login flow
+  const pendingPassword = ref<string | null>(null)
+
+  function setPendingPassword(password: string) {
+    pendingPassword.value = password
+  }
+
+  function clearPendingPassword() {
+    pendingPassword.value = null
+  }
+
   async function register(email: string, password: string, ageGroup: string) {
     // Don't set user/isAuthenticated yet - they need to verify email first
     return withLoading(
@@ -24,6 +37,13 @@ export const useAuthStore = defineStore('auth', () => {
       isAuthenticated.value = true
       return result
     }, 'Email verification failed')
+  }
+
+  async function confirmEmailOnly(email: string, code: string) {
+    return withLoading(
+      () => authService.confirmEmailOnly(email, code),
+      'Email verification failed'
+    )
   }
 
   async function resendConfirmationCode(email: string) {
@@ -88,8 +108,12 @@ export const useAuthStore = defineStore('auth', () => {
     isAuthenticated,
     isLoading,
     error,
+    pendingPassword,
+    setPendingPassword,
+    clearPendingPassword,
     register,
     confirmEmail,
+    confirmEmailOnly,
     resendConfirmationCode,
     forgotPassword,
     confirmPasswordReset,

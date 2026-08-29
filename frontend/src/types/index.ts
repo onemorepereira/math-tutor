@@ -65,6 +65,12 @@ export interface GameSession {
   isCompleted: boolean
 }
 
+export interface AnswerResult {
+  isCorrect: boolean
+  pointsEarned: number
+  correctAnswer: string
+}
+
 export interface Scorecard {
   sessionId: string
   totalScore: number

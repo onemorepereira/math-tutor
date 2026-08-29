@@ -1,5 +1,5 @@
 import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda'
-import { PutCommand } from '@aws-sdk/lib-dynamodb'
+import { PutCommand, QueryCommand } from '@aws-sdk/lib-dynamodb'
 import { v4 as uuidv4 } from 'uuid'
 import { dynamodb, USER_TABLE } from '../utils/dynamodb.js'
 import { generateChildFriendlyUsername } from '../utils/usernameGenerator.js'
@@ -14,13 +14,22 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       return createErrorResponse(403, 'New signups are currently disabled')
     }
 
+    // Identity comes from the verified JWT, never from the request body
+    const claims = event.requestContext.authorizer?.claims
+    const cognitoId = claims?.sub
+    const email = claims?.email
+
+    if (!cognitoId || !email) {
+      return createErrorResponse(401, 'Unauthorized')
+    }
+
     if (!event.body) {
       return createErrorResponse(400, 'Request body is required')
     }
 
-    const { cognitoId, email, ageGroup } = JSON.parse(event.body)
+    const { ageGroup } = JSON.parse(event.body)
 
-    if (!cognitoId || !email || !ageGroup) {
+    if (!ageGroup) {
       return createErrorResponse(400, 'Missing required fields')
     }
 
@@ -40,6 +49,30 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const ageGroupValidation = validateAgeGroup(ageGroup)
     if (!ageGroupValidation.isValid) {
       return createErrorResponse(400, ageGroupValidation.error!)
+    }
+
+    // Registration is idempotent: one user record per Cognito identity
+    const existingResult = await dynamodb.send(new QueryCommand({
+      TableName: USER_TABLE,
+      IndexName: 'CognitoIdIndex',
+      KeyConditionExpression: 'cognitoId = :cognitoId',
+      ExpressionAttributeValues: {
+        ':cognitoId': cognitoId
+      }
+    }))
+
+    if (existingResult.Items && existingResult.Items.length > 0) {
+      const existing = existingResult.Items[0]
+      return createSuccessResponse({
+        success: true,
+        user: {
+          id: existing.userId,
+          email: existing.email,
+          screenName: existing.screenName,
+          ageGroup: existing.ageGroup,
+          createdAt: existing.createdAt
+        }
+      })
     }
 
     const userId = uuidv4()

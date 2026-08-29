@@ -28,6 +28,27 @@ const poolData = {
 
 const userPool = new CognitoUserPool(poolData)
 
+/**
+ * Fetch the user's profile, creating it if it doesn't exist yet (the register
+ * endpoint is idempotent and derives identity from the verified JWT). This makes
+ * login self-healing when verification finished without completing registration.
+ */
+async function fetchOrCreateProfile(session: CognitoUserSession): Promise<User> {
+  const headers = { Authorization: `Bearer ${session.getIdToken().getJwtToken()}` }
+
+  try {
+    const response = await axios.get(`${API_URL}/api/users/profile`, { headers })
+    return response.data.user
+  } catch (err: any) {
+    if (err?.response?.status !== 404) {
+      throw err
+    }
+    const ageGroup = (session.getIdToken().payload['custom:ageGroup'] as string) || 'elementary'
+    const response = await axios.post(`${API_URL}/api/users/register`, { ageGroup }, { headers })
+    return response.data.user
+  }
+}
+
 export const authService = {
   async register(email: string, password: string, ageGroup: string) {
     return new Promise<RegisterResult>((resolve, reject) => {
@@ -43,20 +64,18 @@ export const authService = {
       ]
 
       userPool.signUp(email, password, attributeList, [], async (err, result) => {
-        if (err) {
-          reject(err)
+        if (err || !result) {
+          reject(err ?? new Error('Registration failed: no result returned'))
           return
         }
 
-        if (result) {
-          // Just return the Cognito user - don't create in DynamoDB yet
-          // That will happen after email verification
-          resolve({
-            cognitoUser: result.user,
-            userConfirmed: result.userConfirmed,
-            email
-          })
-        }
+        // Just return the Cognito user - don't create in DynamoDB yet
+        // That will happen after email verification
+        resolve({
+          cognitoUser: result.user,
+          userConfirmed: result.userConfirmed,
+          email
+        })
       })
     })
   },
@@ -84,13 +103,10 @@ export const authService = {
           cognitoUser.authenticateUser(authenticationDetails, {
             onSuccess: async (session) => {
               try {
-                const cognitoId = session.getIdToken().payload.sub
                 const idToken = session.getIdToken().getJwtToken()
 
-                // Create user in DynamoDB
+                // Create user in DynamoDB; identity comes from the verified JWT
                 const response = await axios.post(`${API_URL}/api/users/register`, {
-                  cognitoId,
-                  email,
                   ageGroup
                 }, {
                   headers: {
@@ -113,6 +129,23 @@ export const authService = {
         } catch (authErr) {
           reject(authErr)
         }
+      })
+    })
+  },
+
+  async confirmEmailOnly(email: string, code: string) {
+    return new Promise<void>((resolve, reject) => {
+      const cognitoUser = new CognitoUser({
+        Username: email,
+        Pool: userPool
+      })
+
+      cognitoUser.confirmRegistration(code, true, (err) => {
+        if (err) {
+          reject(err)
+          return
+        }
+        resolve()
       })
     })
   },
@@ -185,16 +218,9 @@ export const authService = {
       cognitoUser.authenticateUser(authenticationDetails, {
         onSuccess: async (session) => {
           try {
-            const idToken = session.getIdToken().getJwtToken()
-            const response = await axios.get(`${API_URL}/api/users/profile`, {
-              headers: {
-                Authorization: `Bearer ${idToken}`
-              }
-            })
-
             resolve({
               session,
-              user: response.data.user
+              user: await fetchOrCreateProfile(session)
             })
           } catch (err) {
             reject(err)

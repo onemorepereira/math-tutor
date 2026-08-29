@@ -36,6 +36,8 @@ Resources:
   # Cognito User Pool
   CognitoUserPool:
     Type: AWS::Cognito::UserPool
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       UserPoolName: !Sub math-tutor-users-${Environment}
       AutoVerifiedAttributes:
@@ -81,9 +83,13 @@ Resources:
   # DynamoDB Tables
   UserTable:
     Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       TableName: !Sub math-tutor-users-${Environment}
       BillingMode: PAY_PER_REQUEST
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
       AttributeDefinitions:
         - AttributeName: userId
           AttributeType: S
@@ -102,9 +108,13 @@ Resources:
 
   GameSessionTable:
     Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       TableName: !Sub math-tutor-sessions-${Environment}
       BillingMode: PAY_PER_REQUEST
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
       AttributeDefinitions:
         - AttributeName: sessionId
           AttributeType: S
@@ -123,9 +133,13 @@ Resources:
 
   PublicStatsCache:
     Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       TableName: !Sub math-tutor-public-cache-${Environment}
       BillingMode: PAY_PER_REQUEST
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
       AttributeDefinitions:
         - AttributeName: cacheKey
           AttributeType: S
@@ -150,6 +164,12 @@ Resources:
               Action:
                 - dynamodb:PutItem
               Resource: !GetAtt UserTable.Arn
+            - Effect: Allow
+              Action:
+                - dynamodb:Query
+              Resource:
+                - !GetAtt UserTable.Arn
+                - !Sub ${UserTable.Arn}/index/*
       Events:
         RegisterUser:
           Type: Api
@@ -157,10 +177,13 @@ Resources:
             Path: /api/users/register
             Method: post
             RestApiId: !Ref MathTutorApi
+            Auth:
+              Authorizer: CognitoAuthorizer
 
   RegisterUserFunctionLogGroup:
     Type: AWS::Logs::LogGroup
     DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       LogGroupName: !Sub /aws/lambda/${RegisterUserFunction}
       RetentionInDays: 7
@@ -188,6 +211,7 @@ Resources:
   GetUserProfileFunctionLogGroup:
     Type: AWS::Logs::LogGroup
     DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       LogGroupName: !Sub /aws/lambda/${GetUserProfileFunction}
       RetentionInDays: 7
@@ -217,6 +241,7 @@ Resources:
   GetUserSessionsFunctionLogGroup:
     Type: AWS::Logs::LogGroup
     DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       LogGroupName: !Sub /aws/lambda/${GetUserSessionsFunction}
       RetentionInDays: 7
@@ -259,6 +284,7 @@ Resources:
   CreateGameSessionFunctionLogGroup:
     Type: AWS::Logs::LogGroup
     DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       LogGroupName: !Sub /aws/lambda/${CreateGameSessionFunction}
       RetentionInDays: 7
@@ -271,8 +297,12 @@ Resources:
       CodeUri: backend/
       Handler: functions/requestHint.handler
       Policies:
-        - DynamoDBReadPolicy:
-            TableName: !Ref GameSessionTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:GetItem
+                - dynamodb:UpdateItem
+              Resource: !GetAtt GameSessionTable.Arn
         - DynamoDBReadPolicy:
             TableName: !Ref UserTable
         - Statement:
@@ -295,6 +325,7 @@ Resources:
   RequestHintFunctionLogGroup:
     Type: AWS::Logs::LogGroup
     DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       LogGroupName: !Sub /aws/lambda/${RequestHintFunction}
       RetentionInDays: 7
@@ -332,6 +363,7 @@ Resources:
   SubmitAnswerFunctionLogGroup:
     Type: AWS::Logs::LogGroup
     DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       LogGroupName: !Sub /aws/lambda/${SubmitAnswerFunction}
       RetentionInDays: 7
@@ -373,6 +405,7 @@ Resources:
   EndGameSessionFunctionLogGroup:
     Type: AWS::Logs::LogGroup
     DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       LogGroupName: !Sub /aws/lambda/${EndGameSessionFunction}
       RetentionInDays: 7
@@ -409,6 +442,7 @@ Resources:
   GetSolutionExplanationFunctionLogGroup:
     Type: AWS::Logs::LogGroup
     DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       LogGroupName: !Sub /aws/lambda/${GetSolutionExplanationFunction}
       RetentionInDays: 7
@@ -437,6 +471,7 @@ Resources:
   GetLeaderboardFunctionLogGroup:
     Type: AWS::Logs::LogGroup
     DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       LogGroupName: !Sub /aws/lambda/${GetLeaderboardFunction}
       RetentionInDays: 7
@@ -465,6 +500,7 @@ Resources:
   GetActivityStatsFunctionLogGroup:
     Type: AWS::Logs::LogGroup
     DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       LogGroupName: !Sub /aws/lambda/${GetActivityStatsFunction}
       RetentionInDays: 7
@@ -501,6 +537,7 @@ Resources:
   UpdatePublicStatsCacheFunctionLogGroup:
     Type: AWS::Logs::LogGroup
     DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       LogGroupName: !Sub /aws/lambda/${UpdatePublicStatsCacheFunction}
       RetentionInDays: 7
@@ -510,6 +547,11 @@ Resources:
     Type: AWS::Serverless::Api
     Properties:
       StageName: !Ref Environment
+      MethodSettings:
+        - HttpMethod: '*'
+          ResourcePath: '/*'
+          ThrottlingRateLimit: 10
+          ThrottlingBurstLimit: 25
       Cors:
         AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
         AllowHeaders: "'Content-Type,Authorization,X-Amz-Date,X-Api-Key,X-Amz-Security-Token'"
