@@ -66,6 +66,16 @@ export async function generateMathProblems(difficulty: string, count: number = 1
   const timestamp = Date.now()
   const randomSeed = Math.floor(Math.random() * 10000)
 
+  // Canonical topic labels per difficulty; keeps stats aggregation clean
+  const canonicalTopics = {
+    elementary: ['Addition', 'Subtraction', 'Multiplication', 'Division', 'Number Patterns', 'Fractions'],
+    middle: ['Fractions', 'Decimals', 'Percentages', 'Basic Algebra', 'Geometry'],
+    high: ['Algebra', 'Equations', 'Geometry', 'Trigonometry', 'Word Problems']
+  }
+  const topicChoices = (subcategories && subcategories.length > 0)
+    ? subcategories
+    : canonicalTopics[difficulty as keyof typeof canonicalTopics] ?? canonicalTopics.elementary
+
   // Build subcategory constraint if specified
   const subcategoryConstraint = subcategories && subcategories.length > 0
     ? `\n\nFOCUS ONLY ON THESE TOPICS: ${subcategories.join(', ')}\nGenerate problems ONLY from these specific topics. Do not include problems from other topics.`
@@ -80,6 +90,8 @@ Session ID: ${timestamp}-${randomSeed}
 Create completely different problems each time, using different numbers, scenarios, and problem types. Mix computational problems with word problems.
 
 For each problem provide: a question, the correctAnswer, a topic, maxPoints (5-20 based on difficulty), and answerType ("numeric" if the answer is a number including decimals/negatives, "text" if it is a word or phrase).
+
+The topic field MUST be exactly one of: ${topicChoices.join(', ')}. Do not invent other topic labels.
 
 Format your response as a JSON array like:
 [{"question":"What is 15 + 27?","correctAnswer":"42","topic":"Addition","maxPoints":10,"answerType":"numeric"}]
