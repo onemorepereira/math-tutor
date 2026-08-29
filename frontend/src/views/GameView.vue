@@ -328,7 +328,10 @@ async function handleNextProblem() {
 }
 
 .problem-question {
+  font-family: var(--font-math);
+  font-weight: 600;
   font-size: 1.75rem;
+  letter-spacing: 0.5px;
   color: #333;
   line-height: 1.4;
 }

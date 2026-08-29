@@ -140,7 +140,7 @@ async function handleLogout() {
 }
 
 .logo-text {
-  font-family: 'Bangers', cursive, sans-serif;
+  font-family: var(--font-display);
   letter-spacing: 2px;
 }
 

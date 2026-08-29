@@ -1,3 +1,11 @@
+:root {
+  /* Display face: chrome only (logo, buttons, section headings). Never digits. */
+  --font-display: 'Bangers', cursive, sans-serif;
+  /* Math face: anything a kid has to read numbers out of. Bangers renders 1 and 7
+     as near-identical strokes, which caused problems to be misread. */
+  --font-math: 'Baloo 2', cursive, sans-serif;
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -12,20 +20,27 @@ body {
 }
 
 h1, h2, h3 {
-  font-family: 'Bangers', cursive, sans-serif;
+  font-family: var(--font-display);
   letter-spacing: 1px;
 }
 
-h4, h5, h6, strong, b {
-  font-family: 'Bangers', cursive, sans-serif;
+h4, h5, h6 {
+  font-family: var(--font-display);
   letter-spacing: 0.5px;
+}
+
+/* Inline emphasis carries digits (hint numbers, screen names) - keep it legible. */
+strong, b {
+  font-family: var(--font-math);
+  font-weight: 600;
+  letter-spacing: 0.3px;
 }
 
 .btn {
   padding: 0.75rem 1.5rem;
   border: none;
   border-radius: 6px;
-  font-family: 'Bangers', cursive, sans-serif;
+  font-family: var(--font-display);
   font-size: 1.1rem;
   letter-spacing: 1px;
   cursor: pointer;
@@ -88,7 +103,7 @@ h4, h5, h6, strong, b {
 .form-group label {
   display: block;
   margin-bottom: 0.5rem;
-  font-family: 'Bangers', cursive, sans-serif;
+  font-family: var(--font-display);
   font-size: 1.1rem;
   letter-spacing: 0.5px;
   color: #333;
