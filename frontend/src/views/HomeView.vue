@@ -347,8 +347,9 @@ async function startGame() {
 }
 
 .belt-chip {
-  display: inline-block;
-  margin: 0.5rem 0;
+  display: block;
+  width: fit-content;
+  margin: 0.75rem auto 1rem;
   padding: 0.35rem 0.85rem;
   background: #f4f1fb;
   border: 1px solid #d9d2ef;
