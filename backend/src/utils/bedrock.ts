@@ -1,4 +1,5 @@
 import { BedrockRuntimeClient, InvokeModelCommand } from '@aws-sdk/client-bedrock-runtime'
+import { reconcileVerifiedAnswers, type VerifiableProblem } from './answerVerification.js'
 
 const client = new BedrockRuntimeClient({ region: process.env.BEDROCK_REGION || 'us-east-1' })
 
@@ -19,7 +20,12 @@ export interface BedrockResponse {
   content: string
 }
 
-export async function invokeNova(prompt: string, temperature: number = 0.9, modelId: string = MODEL_ID): Promise<string> {
+export async function invokeNova(
+  prompt: string,
+  temperature: number = 0.9,
+  modelId: string = MODEL_ID,
+  maxTokens: number = 2048
+): Promise<string> {
   const payload = {
     messages: [
       {
@@ -28,7 +34,7 @@ export async function invokeNova(prompt: string, temperature: number = 0.9, mode
       }
     ],
     inferenceConfig: {
-      maxTokens: 2048,
+      maxTokens,
       temperature,
       topP: 0.95
     }
@@ -93,6 +99,8 @@ For each problem provide: a question, the correctAnswer, a topic, maxPoints (5-2
 
 The topic field MUST be exactly one of: ${topicChoices.join(', ')}. Do not invent other topic labels.
 
+Solve every problem yourself before writing it down and make sure correctAnswer is exactly right — a wrong answer is worse than an easy problem. Keep each question self-contained and unambiguous.
+
 Format your response as a JSON array like:
 [{"question":"What is 15 + 27?","correctAnswer":"42","topic":"Addition","maxPoints":10,"answerType":"numeric"}]
 
@@ -114,68 +122,61 @@ You MUST output all ${count} complete problems. Return ONLY the JSON array, no a
   return problems
 }
 
-export async function verifyTextAnswers(
-  problems: Array<{ id: string; question: string; correctAnswer: string; answerType: string }>
-): Promise<Array<{ id: string; question: string; correctAnswer: string; answerType: string }>> {
-  const textProblems = problems.filter(p => p.answerType === 'text')
-
-  if (textProblems.length === 0) {
+/**
+ * Independently re-solves every generated problem and drops the ones whose
+ * answer does not survive the second opinion. Generation runs hot enough to
+ * hallucinate ("1/10 of 30 = 21"), and shipping a wrong answer to a kid is
+ * worse than shipping one problem fewer.
+ */
+export async function verifyProblemAnswers<T extends VerifiableProblem>(problems: T[]): Promise<T[]> {
+  if (problems.length === 0) {
     return problems
   }
 
-  const questionsForVerification = textProblems.map((p, i) => `${i + 1}. [ID: ${p.id}] ${p.question}`).join('\n')
+  const questionsForVerification = problems.map((p, i) => `${i + 1}. [ID: ${p.id}] ${p.question}`).join('\n')
 
-  const prompt = `Solve each of the following problems. For each one, provide ONLY the answer — a single word or short phrase.
+  const prompt = `Solve each of the following math problems. These answers are graded against a student's work, so accuracy matters more than speed.
 
 ${questionsForVerification}
 
-Return your answers as a JSON object mapping each ID to your answer. Example:
-{"id-1": "answer1", "id-2": "answer2"}
+Work through each problem step by step — show your arithmetic so you can catch your own mistakes.
 
-IMPORTANT: Return ONLY the JSON object, no additional text.`
+Then, on the last line only, output a JSON object mapping each ID to its final answer. Example:
+{"id-1": "42", "id-2": "3/4"}
 
-  console.log(`[verifyTextAnswers] Verifying ${textProblems.length} text-answer problems using Nova 2 Lite`)
-  debug(`[verifyTextAnswers] Questions:`, JSON.stringify(textProblems.map(p => ({ id: p.id, question: p.question, originalAnswer: p.correctAnswer }))))
+The JSON object must be the last thing you write, with no text after it.`
+
+  console.log(`[verifyProblemAnswers] Verifying ${problems.length} problems using Nova 2 Lite`)
+  debug(`[verifyProblemAnswers] Questions:`, JSON.stringify(problems.map(p => ({ id: p.id, question: p.question, originalAnswer: p.correctAnswer }))))
 
   try {
-    const response = await invokeNova(prompt, 0.3, VERIFICATION_MODEL_ID)
-    debug(`[verifyTextAnswers] Nova 2 Lite response:`, response)
+    // Reasoning needs room, and the answer JSON comes after it
+    const response = await invokeNova(prompt, 0.2, VERIFICATION_MODEL_ID, 6000)
+    debug(`[verifyProblemAnswers] Nova 2 Lite response:`, response)
 
-    const jsonMatch = response.match(/\{[\s\S]*\}/)
-    if (!jsonMatch) {
-      console.warn(`[verifyTextAnswers] Failed to parse JSON from response, using original answers`)
+    // The answer object is flat and comes last; a greedy match would swallow
+    // any braces that appear in the worked solutions above it
+    const jsonMatches = response.match(/\{[^{}]*\}/g)
+    if (!jsonMatches || jsonMatches.length === 0) {
+      console.warn(`[verifyProblemAnswers] Failed to parse JSON from response, keeping original problems`)
       return problems
     }
 
-    const verifiedAnswers: Record<string, string> = JSON.parse(jsonMatch[0])
-    debug(`[verifyTextAnswers] Verified answers:`, JSON.stringify(verifiedAnswers))
+    const verifiedAnswers: Record<string, string> = JSON.parse(jsonMatches[jsonMatches.length - 1])
+    debug(`[verifyProblemAnswers] Verified answers:`, JSON.stringify(verifiedAnswers))
 
-    let mismatchCount = 0
-    const result = problems.map(p => {
-      if (p.answerType !== 'text') return p
+    const { problems: kept, droppedIds } = reconcileVerifiedAnswers(problems, verifiedAnswers)
 
-      const verifiedAnswer = verifiedAnswers[p.id]
-      if (!verifiedAnswer) {
-        debug(`[verifyTextAnswers] No verified answer for problem ${p.id}, keeping original`)
-        return p
-      }
+    if (droppedIds.length > 0) {
+      const dropped = problems.filter(p => droppedIds.includes(p.id))
+      console.warn(`[verifyProblemAnswers] Dropped ${droppedIds.length}/${problems.length} problems on answer disagreement: ${
+        dropped.map(p => `"${p.question}" (generated ${p.correctAnswer}, verified ${verifiedAnswers[p.id]})`).join('; ')
+      }`)
+    }
 
-      const normalizedOriginal = p.correctAnswer.toLowerCase().trim()
-      const normalizedVerified = verifiedAnswer.toLowerCase().trim()
-
-      if (normalizedOriginal !== normalizedVerified) {
-        mismatchCount++
-        debug(`[verifyTextAnswers] MISMATCH for "${p.question}": original="${p.correctAnswer}" verified="${verifiedAnswer.trim()}" — using verified`)
-        return { ...p, correctAnswer: verifiedAnswer.trim() }
-      }
-
-      return p
-    })
-
-    console.log(`[verifyTextAnswers] Corrected ${mismatchCount}/${textProblems.length} text answers`)
-    return result
+    return kept
   } catch (error) {
-    console.error(`[verifyTextAnswers] Verification failed, using original answers:`, error)
+    console.error(`[verifyProblemAnswers] Verification failed, keeping original problems:`, error)
     return problems
   }
 }
@@ -186,18 +187,22 @@ export async function generateHint(
   hintNumber: number,
   ageGroup: string
 ) {
-  const prompt = `You are a helpful math tutor. Generate hint #${hintNumber} for this problem:
+  const prompt = `You are a math tutor giving hint #${hintNumber} to a ${ageGroup}-school student.
 
 Question: ${question}
 Correct Answer: ${correctAnswer}
-Student Age Group: ${ageGroup}
 
 ${hintNumber === 1
-    ? 'Provide a gentle first hint that guides them toward the solution without giving it away.'
-    : 'Provide a stronger second hint that gives more direction but still requires them to solve it.'
+    ? 'Name the first concrete step or rule that unlocks this problem, without doing it for them.'
+    : 'Walk them up to the final step: state the rule AND set up the work, but stop before computing the answer.'
 }
 
-Keep the hint age-appropriate, encouraging, and under 100 words.
+Rules for the hint:
+- 1 to 2 short sentences, 35 words maximum
+- Start with the math, not with praise — no "Great job", "You're on the right track", or "Keep going"
+- Be concrete about THIS problem (name the actual numbers or the actual rule)
+- Never state the final answer
+- Plain language a student can read at a glance
 
 IMPORTANT: Return ONLY the hint text, no additional formatting or labels.`
 
