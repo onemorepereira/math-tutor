@@ -57,7 +57,7 @@
             @keydown.space.prevent="toggleExplanation(attempt.problemId)"
           >
             <div class="problem-header">
-              <h3>{{ attempt.problem.question }}</h3>
+              <h3 class="problem-question">{{ attempt.problem.question }}</h3>
               <span class="expand-icon">{{ expandedProblem === attempt.problemId ? '−' : '+' }}</span>
             </div>
 
@@ -349,6 +349,12 @@ function goHome() {
 .problem-item:focus-visible {
   outline: 3px solid #667eea;
   outline-offset: 2px;
+}
+
+.problem-question {
+  font-family: var(--font-math);
+  font-weight: 600;
+  letter-spacing: 0.5px;
 }
 
 .problem-header {
