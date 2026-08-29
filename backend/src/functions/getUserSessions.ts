@@ -2,6 +2,7 @@ import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda'
 import { QueryCommand } from '@aws-sdk/lib-dynamodb'
 import { dynamodb, USER_TABLE, GAME_SESSION_TABLE } from '../utils/dynamodb.js'
 import { sanitizeError, createSuccessResponse, createErrorResponse } from '../utils/errorHandler.js'
+import { normalizeTopic } from '../utils/topicNormalizer.js'
 
 export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   try {
@@ -57,6 +58,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       const maxPossible = s.problems.reduce((sum: number, p: any) => sum + p.maxPoints, 0)
       return s.totalScore === maxPossible
     }).length
+    const elementarySessions = completedSessions.filter((s: any) => s.difficulty === 'elementary').length
+    const middleSessions = completedSessions.filter((s: any) => s.difficulty === 'middle').length
 
     // Define all achievements with unlock conditions
     const allAchievements = [
@@ -67,7 +70,11 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       { id: 'perfectionist', name: 'Perfectionist', description: 'Get 10 perfect scores', condition: perfectScores >= 10 },
       { id: 'century', name: 'Century Club', description: 'Solve 100 problems', condition: totalProblems >= 100 },
       { id: 'expert', name: 'Expert Mathematician', description: 'Solve 500 problems', condition: totalProblems >= 500 },
-      { id: 'accurate', name: 'Sharp Shooter', description: 'Maintain 90%+ accuracy', condition: accuracy >= 90 && totalProblems >= 10 }
+      { id: 'accurate', name: 'Sharp Shooter', description: 'Maintain 90%+ accuracy', condition: accuracy >= 90 && totalProblems >= 10 },
+      { id: 'elementary_first', name: 'Elementary Explorer', description: 'Complete an Elementary game', condition: elementarySessions >= 1 },
+      { id: 'elementary_ten', name: 'Elementary Ninja', description: 'Complete 10 Elementary games', condition: elementarySessions >= 10 },
+      { id: 'middle_first', name: 'Middle School Challenger', description: 'Complete a Middle School game', condition: middleSessions >= 1 },
+      { id: 'middle_ten', name: 'Middle School Ninja', description: 'Complete 10 Middle School games', condition: middleSessions >= 10 }
     ]
 
     // Map achievements with unlocked status
@@ -78,30 +85,34 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       unlocked: achievement.condition
     }))
 
-    // Calculate average time and accuracy by topic
-    const topicData: Record<string, { totalTime: number, count: number, correct: number }> = {}
+    // Calculate average time and accuracy by grade + normalized topic
+    const topicData: Record<string, { difficulty: string, topic: string, totalTime: number, count: number, correct: number }> = {}
 
     completedSessions.forEach((session: any) => {
       session.attempts.forEach((attempt: any) => {
         // Find the problem to get the topic
         const problem = session.problems.find((p: any) => p.id === attempt.problemId)
         if (problem && problem.topic) {
-          if (!topicData[problem.topic]) {
-            topicData[problem.topic] = { totalTime: 0, count: 0, correct: 0 }
+          const difficulty = problem.difficulty || session.difficulty || 'elementary'
+          const topic = normalizeTopic(problem.topic, difficulty)
+          const key = `${difficulty}|${topic}`
+          if (!topicData[key]) {
+            topicData[key] = { difficulty, topic, totalTime: 0, count: 0, correct: 0 }
           }
           if (attempt.timeSpentSeconds) {
-            topicData[problem.topic].totalTime += attempt.timeSpentSeconds
+            topicData[key].totalTime += attempt.timeSpentSeconds
           }
-          topicData[problem.topic].count += 1
+          topicData[key].count += 1
           if (attempt.isCorrect) {
-            topicData[problem.topic].correct += 1
+            topicData[key].correct += 1
           }
         }
       })
     })
 
-    const topicPerformance = Object.entries(topicData).map(([topic, data]) => ({
-      topic,
+    const topicPerformance = Object.values(topicData).map((data) => ({
+      topic: data.topic,
+      difficulty: data.difficulty,
       totalSeconds: data.totalTime,
       averageSeconds: data.totalTime > 0 ? Math.round(data.totalTime / data.count) : 0,
       problemCount: data.count,

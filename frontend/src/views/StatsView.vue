@@ -85,39 +85,43 @@
       <div v-if="stats.topicPerformance && stats.topicPerformance.length > 0" class="topic-time-section">
         <h3>Your Topic Performance</h3>
         <p class="section-subtitle">Practice topics where you need more help (shown first)</p>
-        <div class="topic-time-grid">
-          <div
-            v-for="topicData in stats.topicPerformance"
-            :key="topicData.topic"
-            :class="['topic-time-card', 'card', getAccuracyClass(topicData.accuracy)]"
-          >
-            <div class="topic-header">
-              <div class="topic-name">{{ topicData.topic }}</div>
-              <div class="accuracy-badge" :class="getAccuracyClass(topicData.accuracy)">
-                {{ topicData.accuracy }}%
-              </div>
-            </div>
-            <div class="topic-stats">
-              <div class="topic-stat">
-                <span class="stat-icon">✅</span>
-                <span>{{ topicData.correctCount }}/{{ topicData.problemCount }}</span>
-              </div>
-              <div class="topic-stat">
-                <span class="stat-icon">⏱️</span>
-                <span>{{ formatSeconds(topicData.totalSeconds) }}</span>
-              </div>
-            </div>
-            <button
-              @click="startTopicGame(topicData.topic)"
-              class="btn btn-primary topic-practice-btn"
-              :disabled="startingTopic === topicData.topic"
+        <div v-for="grade in topicGrades" :key="grade.key" class="grade-group">
+          <h4 class="grade-heading">{{ grade.label }}</h4>
+          <div class="topic-time-grid">
+            <div
+              v-for="topicData in grade.topics"
+              :key="`${grade.key}-${topicData.topic}`"
+              :class="['topic-time-card', 'card', getAccuracyClass(topicData.accuracy)]"
             >
-              <span v-if="startingTopic === topicData.topic">
-                <span class="spinner"></span>
-                Starting game...
-              </span>
-              <span v-else>Practice This Topic</span>
-            </button>
+              <div class="topic-header">
+                <div class="topic-name">{{ topicData.topic }}</div>
+                <div class="accuracy-badge" :class="getAccuracyClass(topicData.accuracy)">
+                  {{ topicData.accuracy }}%
+                </div>
+              </div>
+              <div class="topic-stats">
+                <div class="topic-stat">
+                  <span class="stat-icon">✅</span>
+                  <span>{{ topicData.correctCount }}/{{ topicData.problemCount }}</span>
+                </div>
+                <div class="topic-stat">
+                  <span class="stat-icon">⏱️</span>
+                  <span>{{ formatSeconds(topicData.totalSeconds) }}</span>
+                </div>
+              </div>
+              <button
+                v-if="isPracticable(topicData.topic)"
+                @click="startTopicGame(topicData.topic, grade.key)"
+                class="btn btn-primary topic-practice-btn"
+                :disabled="startingTopic === topicData.topic"
+              >
+                <span v-if="startingTopic === topicData.topic">
+                  <span class="spinner"></span>
+                  Starting game...
+                </span>
+                <span v-else>Practice This Topic</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -190,8 +194,8 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { authService } from '@/services/auth'
-import { useAuthStore } from '@/stores/auth'
 import { useGameStore } from '@/stores/game'
+import type { DifficultyLevel } from '@/types'
 import GameLoadingOverlay from '@/components/GameLoadingOverlay.vue'
 
 const router = useRouter()
@@ -287,7 +291,11 @@ function getAchievementTooltip(id: string): string {
     'perfectionist': 'You\'re a perfect score champion!',
     'century': 'That\'s a LOT of practice!',
     'expert': 'Wow! You\'re a math superstar!',
-    'accurate': 'You make very few mistakes!'
+    'accurate': 'You make very few mistakes!',
+    'elementary_first': 'You cleared your first Elementary game!',
+    'elementary_ten': 'Ten Elementary games — you own this level!',
+    'middle_first': 'You took on Middle School math!',
+    'middle_ten': 'Ten Middle School games — seriously impressive!'
   }
   return tooltips[id] || 'Great job!'
 }
@@ -301,7 +309,11 @@ function getLockedTooltip(id: string): string {
     'perfectionist': 'Get 10 perfect scores to unlock!',
     'century': 'Solve 100 problems to unlock!',
     'expert': 'Solve 500 problems to unlock!',
-    'accurate': 'Get 90% or more correct (min 10 problems)!'
+    'accurate': 'Get 90% or more correct (min 10 problems)!',
+    'elementary_first': 'Finish an Elementary game to unlock!',
+    'elementary_ten': 'Finish 10 Elementary games to unlock!',
+    'middle_first': 'Try a Middle School game to unlock!',
+    'middle_ten': 'Finish 10 Middle School games to unlock!'
   }
   return tooltips[id] || 'Keep playing to unlock!'
 }
@@ -312,12 +324,51 @@ function getAccuracyClass(accuracy: number): string {
   return 'low-accuracy'
 }
 
-async function startTopicGame(topic: string) {
+// Topics the backend accepts for a practice session; anything else
+// (a legacy free-form label) renders without a practice button
+const PRACTICABLE_TOPICS = [
+  'Addition', 'Subtraction', 'Multiplication', 'Division', 'Fractions',
+  'Decimals', 'Percentages', 'Algebra', 'Basic Algebra', 'Geometry',
+  'Trigonometry', 'Word Problems', 'Number Patterns', 'Equations'
+]
+
+const GRADE_ORDER: DifficultyLevel[] = ['elementary', 'middle', 'high']
+const GRADE_LABELS: Record<DifficultyLevel, string> = {
+  elementary: '🎒 Elementary',
+  middle: '📐 Middle School',
+  high: '🎓 High School'
+}
+
+interface TopicPerformanceEntry {
+  topic: string
+  difficulty?: DifficultyLevel
+  totalSeconds: number
+  averageSeconds: number
+  problemCount: number
+  correctCount: number
+  accuracy: number
+}
+
+const topicGrades = computed(() => {
+  const rows: TopicPerformanceEntry[] = stats.value?.topicPerformance ?? []
+  return GRADE_ORDER
+    .map((key) => ({
+      key,
+      label: GRADE_LABELS[key],
+      topics: rows.filter((t) => (t.difficulty ?? 'elementary') === key)
+    }))
+    .filter((grade) => grade.topics.length > 0)
+})
+
+function isPracticable(topic: string): boolean {
+  return PRACTICABLE_TOPICS.includes(topic)
+}
+
+async function startTopicGame(topic: string, difficulty: DifficultyLevel) {
   try {
     startingTopic.value = topic
     gameStore.resetGame()
-    // Practice at the player's own level, not a fixed one
-    const difficulty = useAuthStore().user?.ageGroup ?? 'elementary'
+    // Practice at the grade where the weakness was measured
     await gameStore.startNewGame(difficulty, 10, [topic])
     router.push({ name: 'game' })
   } catch (err) {
@@ -580,6 +631,18 @@ function getDayTooltip(day: { date: string, activity: any }): string {
   font-size: 0.95rem;
   margin-bottom: 1.5rem;
   margin-top: 0;
+}
+
+.grade-group {
+  margin-bottom: 2rem;
+}
+
+.grade-heading {
+  font-size: 1.1rem;
+  color: #4a3f6b;
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.4rem;
+  border-bottom: 2px solid #e9e4f7;
 }
 
 .topic-time-grid {
