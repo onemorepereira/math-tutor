@@ -64,6 +64,25 @@ export function areFractionsEquivalent(answer: string, correctAnswer: string): b
          simplifiedUser.denominator === simplifiedCorrect.denominator
 }
 
+/**
+ * Numeric value of an answer expressed as a fraction ("3/8") or a plain
+ * decimal ("0.375", ".375", "42"); null when the string is not numeric.
+ */
+export function numericValue(str: string): number | null {
+  const normalized = normalizeAnswer(str)
+
+  const fraction = parseFraction(normalized)
+  if (fraction) {
+    return fraction.numerator / fraction.denominator
+  }
+
+  if (/^-?(\d+\.?\d*|\.\d+)$/.test(normalized)) {
+    return parseFloat(normalized)
+  }
+
+  return null
+}
+
 export function checkAnswerCorrect(userAnswer: string, correctAnswer: string): boolean {
   // First try exact match (normalized)
   if (normalizeAnswer(userAnswer) === normalizeAnswer(correctAnswer)) {
@@ -73,6 +92,14 @@ export function checkAnswerCorrect(userAnswer: string, correctAnswer: string): b
   // Then try fraction equivalence
   if (areFractionsEquivalent(userAnswer, correctAnswer)) {
     return true
+  }
+
+  // Finally try numeric equivalence, so "3/8" matches "0.375" and
+  // "0.50" matches "0.5" (repeating decimals stay exact: "0.33" != 1/3)
+  const userValue = numericValue(userAnswer)
+  const correctValue = numericValue(correctAnswer)
+  if (userValue !== null && correctValue !== null) {
+    return Math.abs(userValue - correctValue) < 1e-9
   }
 
   return false

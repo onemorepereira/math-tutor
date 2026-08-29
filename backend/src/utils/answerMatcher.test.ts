@@ -143,3 +143,34 @@ describe('percentage answers', () => {
     expect(checkAnswerCorrect('24', '25%')).toBe(false)
   })
 })
+
+describe('fraction and decimal equivalence', () => {
+  it('accepts a fraction when the correct answer is its decimal', () => {
+    expect(checkAnswerCorrect('3/8', '0.375')).toBe(true)
+  })
+
+  it('accepts a decimal when the correct answer is a fraction', () => {
+    expect(checkAnswerCorrect('0.375', '3/8')).toBe(true)
+    expect(checkAnswerCorrect('0.4', '2/5')).toBe(true)
+  })
+
+  it('accepts decimals that differ only in formatting', () => {
+    expect(checkAnswerCorrect('.375', '0.375')).toBe(true)
+    expect(checkAnswerCorrect('0.50', '0.5')).toBe(true)
+    expect(checkAnswerCorrect('42.0', '42')).toBe(true)
+  })
+
+  it('rejects a truncated decimal for a repeating fraction', () => {
+    expect(checkAnswerCorrect('0.33', '1/3')).toBe(false)
+  })
+
+  it('rejects genuinely different values', () => {
+    expect(checkAnswerCorrect('3/8', '0.38')).toBe(false)
+    expect(checkAnswerCorrect('1/2', '0.375')).toBe(false)
+  })
+
+  it('leaves text answers untouched by numeric comparison', () => {
+    expect(checkAnswerCorrect('triangle', 'triangle')).toBe(true)
+    expect(checkAnswerCorrect('triangle', 'square')).toBe(false)
+  })
+})
