@@ -1,0 +1,375 @@
+{
+  "family": "architecture",
+  "title": "Number Ninja — Detailed Architecture",
+  "subtitle": "All names are logical · no environment-specific identifiers",
+  "theme": "aws",
+  "containers": [
+    {
+      "id": "client",
+      "type": "layer",
+      "label": "Client"
+    },
+    {
+      "id": "edge",
+      "type": "layer",
+      "label": "Static Delivery"
+    },
+    {
+      "id": "authl",
+      "type": "layer",
+      "label": "Authentication"
+    },
+    {
+      "id": "apil",
+      "type": "layer",
+      "label": "API"
+    },
+    {
+      "id": "compute",
+      "type": "layer",
+      "label": "Lambda Functions (Node.js 22)"
+    },
+    {
+      "id": "userapi",
+      "type": "group",
+      "label": "User API",
+      "parent": "compute"
+    },
+    {
+      "id": "gameapi",
+      "type": "group",
+      "label": "Game API",
+      "parent": "compute"
+    },
+    {
+      "id": "publicapi",
+      "type": "group",
+      "label": "Public Stats",
+      "parent": "compute"
+    },
+    {
+      "id": "datal",
+      "type": "layer",
+      "label": "DynamoDB"
+    },
+    {
+      "id": "ail",
+      "type": "layer",
+      "label": "Amazon Bedrock"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "spa",
+      "icon": "azure.browser",
+      "label": "Vue 3 + Pinia SPA",
+      "sublabel": "S3 + CloudFront hosted",
+      "parent": "client"
+    },
+    {
+      "id": "cloudfront",
+      "icon": "aws.cloudfront",
+      "label": "CloudFront",
+      "sublabel": "OAC · SPA routing · CSP",
+      "parent": "edge"
+    },
+    {
+      "id": "s3",
+      "icon": "aws.simple-storage-service",
+      "label": "S3 Bucket",
+      "sublabel": "Private static assets",
+      "parent": "edge"
+    },
+    {
+      "id": "cognito",
+      "icon": "aws.cognito",
+      "label": "Cognito User Pool",
+      "sublabel": "Email sign-up + verification",
+      "parent": "authl"
+    },
+    {
+      "id": "apigw",
+      "icon": "aws.api-gateway",
+      "label": "API Gateway",
+      "sublabel": "Cognito authorizer · throttled",
+      "parent": "apil"
+    },
+    {
+      "id": "schedule",
+      "icon": "aws.eventbridge",
+      "label": "Schedule",
+      "sublabel": "rate: 15 minutes",
+      "parent": "apil"
+    },
+    {
+      "id": "register",
+      "icon": "aws.lambda",
+      "label": "registerUser",
+      "sublabel": "idempotent, JWT identity",
+      "parent": "userapi"
+    },
+    {
+      "id": "profile",
+      "icon": "aws.lambda",
+      "label": "getUserProfile",
+      "parent": "userapi"
+    },
+    {
+      "id": "usersessions",
+      "icon": "aws.lambda",
+      "label": "getUserSessions",
+      "parent": "userapi"
+    },
+    {
+      "id": "create",
+      "icon": "aws.lambda",
+      "label": "createGameSession",
+      "sublabel": "10 problems via Bedrock",
+      "parent": "gameapi"
+    },
+    {
+      "id": "hint",
+      "icon": "aws.lambda",
+      "label": "requestHint",
+      "sublabel": "records issued hints",
+      "parent": "gameapi"
+    },
+    {
+      "id": "submit",
+      "icon": "aws.lambda",
+      "label": "submitAnswer",
+      "sublabel": "atomic, optimistic lock",
+      "parent": "gameapi"
+    },
+    {
+      "id": "explain",
+      "icon": "aws.lambda",
+      "label": "getSolutionExplanation",
+      "parent": "gameapi"
+    },
+    {
+      "id": "endgame",
+      "icon": "aws.lambda",
+      "label": "endGameSession",
+      "sublabel": "idempotent completion",
+      "parent": "gameapi"
+    },
+    {
+      "id": "leaderboard",
+      "icon": "aws.lambda",
+      "label": "getLeaderboard",
+      "parent": "publicapi"
+    },
+    {
+      "id": "activity",
+      "icon": "aws.lambda",
+      "label": "getActivityStats",
+      "parent": "publicapi"
+    },
+    {
+      "id": "cache",
+      "icon": "aws.lambda",
+      "label": "updatePublicStatsCache",
+      "sublabel": "scheduled aggregation",
+      "parent": "publicapi"
+    },
+    {
+      "id": "users",
+      "icon": "aws.dynamodb",
+      "label": "Users",
+      "sublabel": "PK userId · GSI cognitoId",
+      "parent": "datal"
+    },
+    {
+      "id": "gsessions",
+      "icon": "aws.dynamodb",
+      "label": "Game Sessions",
+      "sublabel": "PK sessionId · GSI userId",
+      "parent": "datal"
+    },
+    {
+      "id": "pubcache",
+      "icon": "aws.dynamodb",
+      "label": "Public Stats Cache",
+      "sublabel": "PK cacheKey · TTL",
+      "parent": "datal"
+    },
+    {
+      "id": "nova",
+      "icon": "aws.bedrock",
+      "label": "Nova 2 Lite",
+      "sublabel": "Problems · hints · explanations",
+      "parent": "ail"
+    }
+  ],
+  "edges": [
+    {
+      "from": "spa",
+      "to": "cloudfront",
+      "kind": "sync",
+      "label": "loads app"
+    },
+    {
+      "from": "cloudfront",
+      "to": "s3",
+      "kind": "data"
+    },
+    {
+      "from": "spa",
+      "to": "cognito",
+      "kind": "sync",
+      "label": "sign in / verify"
+    },
+    {
+      "from": "spa",
+      "to": "apigw",
+      "kind": "sync",
+      "label": "HTTPS + JWT"
+    },
+    {
+      "from": "apigw",
+      "to": "register",
+      "kind": "sync"
+    },
+    {
+      "from": "apigw",
+      "to": "profile",
+      "kind": "sync"
+    },
+    {
+      "from": "apigw",
+      "to": "usersessions",
+      "kind": "sync"
+    },
+    {
+      "from": "apigw",
+      "to": "create",
+      "kind": "sync"
+    },
+    {
+      "from": "apigw",
+      "to": "submit",
+      "kind": "sync"
+    },
+    {
+      "from": "apigw",
+      "to": "hint",
+      "kind": "sync"
+    },
+    {
+      "from": "apigw",
+      "to": "explain",
+      "kind": "sync"
+    },
+    {
+      "from": "apigw",
+      "to": "endgame",
+      "kind": "sync"
+    },
+    {
+      "from": "apigw",
+      "to": "leaderboard",
+      "kind": "sync",
+      "label": "public, no auth"
+    },
+    {
+      "from": "apigw",
+      "to": "activity",
+      "kind": "sync"
+    },
+    {
+      "from": "schedule",
+      "to": "cache",
+      "kind": "async"
+    },
+    {
+      "from": "register",
+      "to": "users",
+      "kind": "data"
+    },
+    {
+      "from": "profile",
+      "to": "users",
+      "kind": "data"
+    },
+    {
+      "from": "usersessions",
+      "to": "gsessions",
+      "kind": "data"
+    },
+    {
+      "from": "create",
+      "to": "gsessions",
+      "kind": "data"
+    },
+    {
+      "from": "submit",
+      "to": "gsessions",
+      "kind": "data"
+    },
+    {
+      "from": "hint",
+      "to": "gsessions",
+      "kind": "data"
+    },
+    {
+      "from": "explain",
+      "to": "gsessions",
+      "kind": "data"
+    },
+    {
+      "from": "endgame",
+      "to": "gsessions",
+      "kind": "data"
+    },
+    {
+      "from": "endgame",
+      "to": "users",
+      "kind": "data",
+      "label": "credit stats once"
+    },
+    {
+      "from": "create",
+      "to": "nova",
+      "kind": "sync"
+    },
+    {
+      "from": "hint",
+      "to": "nova",
+      "kind": "sync"
+    },
+    {
+      "from": "explain",
+      "to": "nova",
+      "kind": "sync"
+    },
+    {
+      "from": "leaderboard",
+      "to": "pubcache",
+      "kind": "data"
+    },
+    {
+      "from": "activity",
+      "to": "pubcache",
+      "kind": "data"
+    },
+    {
+      "from": "cache",
+      "to": "users",
+      "kind": "data",
+      "label": "scan + aggregate"
+    },
+    {
+      "from": "cache",
+      "to": "gsessions",
+      "kind": "data"
+    },
+    {
+      "from": "cache",
+      "to": "pubcache",
+      "kind": "data",
+      "label": "refresh"
+    }
+  ],
+  "legend": true
+}

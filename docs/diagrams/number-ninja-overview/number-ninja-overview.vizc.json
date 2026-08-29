@@ -1,0 +1,99 @@
+{
+  "family": "architecture",
+  "title": "Number Ninja — Product Overview",
+  "subtitle": "AI-powered math practice for kids · serverless on AWS",
+  "theme": "aws",
+  "nodes": [
+    {
+      "id": "player",
+      "icon": "azure.browser",
+      "label": "Player",
+      "sublabel": "Vue 3 SPA in the browser"
+    },
+    {
+      "id": "cloudfront",
+      "icon": "aws.cloudfront",
+      "label": "CloudFront",
+      "sublabel": "CDN + security headers"
+    },
+    {
+      "id": "s3",
+      "icon": "aws.simple-storage-service",
+      "label": "S3",
+      "sublabel": "Static site (private, OAC)"
+    },
+    {
+      "id": "cognito",
+      "icon": "aws.cognito",
+      "label": "Cognito",
+      "sublabel": "Sign-up, email verification, JWT"
+    },
+    {
+      "id": "apigw",
+      "icon": "aws.api-gateway",
+      "label": "API Gateway",
+      "sublabel": "Cognito authorizer, throttled"
+    },
+    {
+      "id": "lambda",
+      "icon": "aws.lambda",
+      "label": "Lambda",
+      "sublabel": "Game & user API (Node.js 22)"
+    },
+    {
+      "id": "dynamodb",
+      "icon": "aws.dynamodb",
+      "label": "DynamoDB",
+      "sublabel": "Users · sessions · public stats"
+    },
+    {
+      "id": "bedrock",
+      "icon": "aws.bedrock",
+      "label": "Bedrock Nova 2 Lite",
+      "sublabel": "Problems, hints, explanations"
+    }
+  ],
+  "edges": [
+    {
+      "from": "player",
+      "to": "cloudfront",
+      "kind": "sync",
+      "label": "loads app"
+    },
+    {
+      "from": "cloudfront",
+      "to": "s3",
+      "kind": "data"
+    },
+    {
+      "from": "player",
+      "to": "cognito",
+      "kind": "sync",
+      "label": "sign in"
+    },
+    {
+      "from": "player",
+      "to": "apigw",
+      "kind": "sync",
+      "label": "HTTPS + JWT"
+    },
+    {
+      "from": "apigw",
+      "to": "lambda",
+      "kind": "sync"
+    },
+    {
+      "from": "lambda",
+      "to": "dynamodb",
+      "kind": "data",
+      "label": "server-side scoring state"
+    },
+    {
+      "from": "lambda",
+      "to": "bedrock",
+      "kind": "sync",
+      "label": "generate content"
+    }
+  ],
+  "legend": true
+}
