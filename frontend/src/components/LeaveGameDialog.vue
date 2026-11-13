@@ -78,6 +78,8 @@ onMounted(() => {
 
 <style scoped>
 .leave-dialog {
+  /* The global reset zeroes margins; auto margins centre a modal dialog */
+  margin: auto;
   border: none;
   border-radius: 12px;
   padding: 1.5rem;
