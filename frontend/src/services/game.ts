@@ -1,11 +1,15 @@
 import axios from 'axios'
 import type { GameSession, Hint, Scorecard, SolutionExplanation, DifficultyLevel, AnswerResult } from '@/types'
 import { authService } from './auth'
+import { sessionExpired } from './session'
 
 const API_URL = import.meta.env.VITE_API_URL || '/api'
 
 async function getAuthHeaders() {
   const token = await authService.getIdToken()
+  if (!token) {
+    throw sessionExpired()
+  }
   return {
     Authorization: `Bearer ${token}`
   }

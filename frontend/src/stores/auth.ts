@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import type { User } from '@/types'
 import { authService } from '@/services/auth'
 import { useLoadingState } from '@/composables/useLoadingState'
+import { useGameStore } from '@/stores/game'
 
 export const useAuthStore = defineStore('auth', () => {
   const user = ref<User | null>(null)
@@ -81,6 +82,8 @@ export const useAuthStore = defineStore('auth', () => {
       await authService.logout()
       user.value = null
       isAuthenticated.value = false
+      // The next player on this browser must not inherit this game or scorecard
+      useGameStore().resetGame()
     } catch (err: any) {
       error.value = err.message || 'Logout failed'
       throw err
@@ -103,6 +106,28 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  // A stored Cognito session is restored once per page load, before the first
+  // route renders, so public routes (home, login) see the real auth state too
+  let authCheck: Promise<void> | null = null
+  function ensureAuthChecked(): Promise<void> {
+    authCheck ??= checkAuth()
+    return authCheck
+  }
+
+  // Re-read the profile after something changed it server-side (a finished
+  // game credits score); keep the current profile if the refresh fails
+  async function refreshUser() {
+    if (!isAuthenticated.value) return
+    try {
+      const currentUser = await authService.getCurrentUser()
+      if (currentUser) {
+        user.value = currentUser
+      }
+    } catch (err) {
+      console.warn('Could not refresh the profile:', err)
+    }
+  }
+
   return {
     user,
     isAuthenticated,
@@ -119,6 +144,8 @@ export const useAuthStore = defineStore('auth', () => {
     confirmPasswordReset,
     login,
     logout,
-    checkAuth
+    checkAuth,
+    ensureAuthChecked,
+    refreshUser
   }
 })

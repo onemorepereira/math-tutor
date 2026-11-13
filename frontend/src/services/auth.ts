@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { sessionExpired } from './session'
 import type { User } from '@/types'
 import {
   CognitoUserPool,
@@ -298,7 +299,7 @@ export const authService = {
 
   async getUserStats() {
     const token = await this.getIdToken()
-    if (!token) throw new Error('Not authenticated')
+    if (!token) throw sessionExpired()
 
     const response = await axios.get(`${API_URL}/api/users/sessions`, {
       headers: {
