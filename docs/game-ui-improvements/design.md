@@ -134,7 +134,7 @@ flowchart LR
      - angle: `degree degrees °`
      - `square <length>`, `cubic <length>`, and a length followed by `²` or `³`
 
-     Canonicalisation maps plurals and spellings to one form (`feet` → `ft`, `degrees`/`°` → `°`). Anything else, such as `x`, `pi`, `i`, `n` or `apples`, is not split off, so `3x`, `2pi` and `4 i` never become numbers.
+     Canonicalisation maps plurals and spellings to one form (`feet` → `ft`, `degrees`/`°` → `°`). A one-letter unit (`m g h s l`) only splits off when whitespace separates it from the number (`3 m`); stuck to a number (`3m`) it is an algebra variable. Found at the Verify gate. Anything else, such as `x`, `pi`, `i`, `n` or `apples`, is not split off, so `3x`, `2pi` and `4 i` never become numbers.
   5. If the rest matches `^-?\d{1,3}(,\d{3})+(\.\d+)?$`, remove the commas.
   6. Return `numericValue(rest)` (null if not numeric) and the unit.
 

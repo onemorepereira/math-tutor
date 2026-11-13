@@ -126,20 +126,26 @@ const OTHER_UNITS: Record<string, string> = {
   degree: '°', degrees: '°', '°': '°'
 }
 
+// A single letter written straight after a number ("3m", "5h") is a variable
+// in algebra, not a unit; only "3 m" (with a space) reads as a unit
+function isUnitToken(token: string, gap: string): boolean {
+  return token.length > 1 || !/^[a-z]$/.test(token) || gap.length > 0
+}
+
 function splitUnit(s: string): { rest: string; unit: string | null } {
   const areaOrVolume = s.match(/^(.*?)\s*(square|cubic)\s+([a-z]+)$/)
   if (areaOrVolume && LENGTH_UNITS[areaOrVolume[3]]) {
     return { rest: areaOrVolume[1], unit: LENGTH_UNITS[areaOrVolume[3]] + (areaOrVolume[2] === 'square' ? '²' : '³') }
   }
 
-  const powered = s.match(/^(.*?)\s*([a-z]+)\s*([²³])$/)
-  if (powered && LENGTH_UNITS[powered[2]]) {
-    return { rest: powered[1], unit: LENGTH_UNITS[powered[2]] + powered[3] }
+  const powered = s.match(/^(.*?)(\s*)([a-z]+)\s*([²³])$/)
+  if (powered && LENGTH_UNITS[powered[3]] && isUnitToken(powered[3], powered[2])) {
+    return { rest: powered[1], unit: LENGTH_UNITS[powered[3]] + powered[4] }
   }
 
-  const plain = s.match(/^(.*?)\s*(°|[a-z]+)$/)
-  const unit = plain && (LENGTH_UNITS[plain[2]] ?? OTHER_UNITS[plain[2]])
-  if (plain && unit && plain[1]) {
+  const plain = s.match(/^(.*?)(\s*)(°|[a-z]+)$/)
+  const unit = plain && (LENGTH_UNITS[plain[3]] ?? OTHER_UNITS[plain[3]])
+  if (plain && unit && plain[1] && isUnitToken(plain[3], plain[2])) {
     return { rest: plain[1], unit }
   }
 

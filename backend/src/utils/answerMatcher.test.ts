@@ -251,6 +251,20 @@ describe('checkAnswerCorrect — decorated numeric answers', () => {
     expect(checkAnswerCorrect('5', '5 apples')).toBe(false)
   })
 
+  it('treats a single letter stuck to a number as a variable, not a unit', () => {
+    // "Simplify 2m + m" is 3m: a bare 3 must not pass
+    for (const [user, correct] of [['3', '3m'], ['5', '5h'], ['2', '2s'], ['3', '3g'], ['4', '4l'], ['3', '3m²'], ['3m', '3']]) {
+      expect(checkAnswerCorrect(user, correct)).toBe(false)
+    }
+  })
+
+  it('still reads a spaced single-letter unit, and matches the same unit typed without a space', () => {
+    expect(checkAnswerCorrect('5', '5 m')).toBe(true)
+    expect(checkAnswerCorrect('5 m', '5')).toBe(true)
+    expect(checkAnswerCorrect('5m', '5 m')).toBe(true)
+    expect(checkAnswerCorrect('9 m²', '9 square m')).toBe(true)
+  })
+
   it('leaves text answers alone', () => {
     expect(checkAnswerCorrect('triangle', 'Triangle')).toBe(true)
     expect(checkAnswerCorrect('x = 5', 'x = 5')).toBe(true)
