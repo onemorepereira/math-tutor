@@ -205,8 +205,10 @@ async function handleSubmit() {
       // to an earlier submit was lost): resync instead of replaying it
       await resyncWithServer()
     } else {
-      // Keep the form and the typed answer so the player can simply retry
+      // Keep the form and the typed answer so the player can simply retry;
+      // the inline message replaces the generic toast for this failure
       submitError.value = 'Your answer could not be sent. Please try again.'
+      gameStore.error = null
     }
   } finally {
     isSubmitting.value = false
