@@ -56,16 +56,18 @@ const calendarDays = computed(() => {
   const days = []
   const today = new Date()
 
-  // Show last 14 days
+  // Platform activity is aggregated by UTC day on the server, so label each
+  // cell with that same UTC day; mixing local labels with UTC keys shows a
+  // neighboring day's count in the evening (US) or morning (Asia)
   for (let i = 13; i >= 0; i--) {
     const date = new Date(today)
-    date.setDate(date.getDate() - i)
+    date.setUTCDate(date.getUTCDate() - i)
     const dateStr = date.toISOString().split('T')[0]
 
     days.push({
       date: dateStr,
-      dayOfWeek: date.toLocaleDateString('en-US', { weekday: 'short' }),
-      dayOfMonth: date.getDate(),
+      dayOfWeek: date.toLocaleDateString('en-US', { weekday: 'short', timeZone: 'UTC' }),
+      dayOfMonth: date.getUTCDate(),
       count: activityData.value?.activityByDate[dateStr] || 0
     })
   }
@@ -81,7 +83,7 @@ const gamesThisWeek = computed(() => {
 
   for (let i = 0; i < 7; i++) {
     const date = new Date(today)
-    date.setDate(date.getDate() - i)
+    date.setUTCDate(date.getUTCDate() - i)
     const dateStr = date.toISOString().split('T')[0]
     count += activityData.value.activityByDate[dateStr] || 0
   }
