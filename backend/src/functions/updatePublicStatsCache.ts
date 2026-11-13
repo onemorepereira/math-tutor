@@ -1,6 +1,5 @@
 import type { ScheduledEvent } from 'aws-lambda'
-import { ScanCommand } from '@aws-sdk/lib-dynamodb'
-import { dynamodb, USER_TABLE, GAME_SESSION_TABLE } from '../utils/dynamodb.js'
+import { scanAll, USER_TABLE, GAME_SESSION_TABLE } from '../utils/dynamodb.js'
 import { setCachedData } from '../utils/cache.js'
 
 export async function handler(event: ScheduledEvent): Promise<void> {
@@ -22,18 +21,13 @@ export async function handler(event: ScheduledEvent): Promise<void> {
 
 async function updateLeaderboardCache(): Promise<void> {
   // Scan the user table to get all users
-  const result = await dynamodb.send(new ScanCommand({
+  const users = await scanAll({
     TableName: USER_TABLE,
     ProjectionExpression: 'screenName, totalScore, gamesPlayed'
-  }))
-
-  if (!result.Items) {
-    await setCachedData('leaderboard', [])
-    return
-  }
+  })
 
   // Sort by totalScore descending and take top 10
-  const leaderboard = result.Items
+  const leaderboard = users
     .filter((user: any) => user.gamesPlayed > 0) // Only include users who have played
     .sort((a: any, b: any) => b.totalScore - a.totalScore)
     .slice(0, 10)
@@ -50,16 +44,16 @@ async function updateLeaderboardCache(): Promise<void> {
 
 async function updateActivityStatsCache(): Promise<void> {
   // Scan the game session table to get completed sessions
-  const result = await dynamodb.send(new ScanCommand({
+  const sessions = await scanAll({
     TableName: GAME_SESSION_TABLE,
     FilterExpression: 'isCompleted = :completed AND attribute_exists(endTime)',
     ExpressionAttributeValues: {
       ':completed': true
     },
     ProjectionExpression: 'endTime, totalScore'
-  }))
+  })
 
-  if (!result.Items || result.Items.length === 0) {
+  if (sessions.length === 0) {
     await setCachedData('activity', { activityByDate: {}, totalGames: 0 })
     return
   }
@@ -67,7 +61,7 @@ async function updateActivityStatsCache(): Promise<void> {
   // Aggregate games by date
   const activityByDate: { [date: string]: number } = {}
 
-  result.Items.forEach((session: any) => {
+  sessions.forEach((session: any) => {
     if (session.endTime) {
       // Extract date from ISO timestamp (YYYY-MM-DD)
       const date = session.endTime.split('T')[0]
@@ -77,9 +71,9 @@ async function updateActivityStatsCache(): Promise<void> {
 
   const activityStats = {
     activityByDate,
-    totalGames: result.Items.length
+    totalGames: sessions.length
   }
 
   await setCachedData('activity', activityStats)
-  console.log(`Activity stats cache updated with ${result.Items.length} total games`)
+  console.log(`Activity stats cache updated with ${sessions.length} total games`)
 }
