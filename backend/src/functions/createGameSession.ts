@@ -84,6 +84,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       ...(subcategories && subcategories.length > 0 && { subcategories }),
       problems,
       attempts: [],
+      hintsRequested: {},
       currentProblemIndex: 0,
       totalScore: 0,
       totalTimeSeconds: 0,

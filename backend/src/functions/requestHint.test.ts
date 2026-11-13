@@ -56,22 +56,41 @@ test('records the requested hint on the session before returning it', async () =
   expect(response.statusCode).toBe(200)
   expect(JSON.parse(response.body).hint.content).toBe('Try counting by sixes')
   const updates = ddbMock.commandCalls(UpdateCommand, { TableName: 'TestSessions' })
-  expect(updates).toHaveLength(1)
-  expect(updates[0].args[0].input.ExpressionAttributeValues).toMatchObject({
-    ':hintsRequested': { 'problem-1': 1 }
-  })
+  // Older sessions have no hint map yet: create it, then set this problem's entry
+  expect(updates).toHaveLength(2)
+  expect(updates[0].args[0].input.UpdateExpression).toContain('if_not_exists(hintsRequested')
+  const record = updates[1].args[0].input
+  expect(record.UpdateExpression).toBe('SET hintsRequested.#problemId = :hintNumber')
+  expect(record.ExpressionAttributeNames).toEqual({ '#problemId': 'problem-1' })
+  expect(record.ExpressionAttributeValues).toMatchObject({ ':hintNumber': 1 })
 })
 
-test('keeps the higher hint number when a lower one is requested again', async () => {
-  ddbMock.on(GetCommand).resolves({ Item: makeSession({ hintsRequested: { 'problem-1': 2 } }) })
+test('writes only this problem\'s entry so concurrent hints on other problems survive', async () => {
+  ddbMock.on(GetCommand).resolves({ Item: makeSession({ hintsRequested: { 'problem-0': 2 } }) })
 
   const response = await handler(makeEvent(1))
 
   expect(response.statusCode).toBe(200)
   const updates = ddbMock.commandCalls(UpdateCommand, { TableName: 'TestSessions' })
-  expect(updates[0].args[0].input.ExpressionAttributeValues).toMatchObject({
-    ':hintsRequested': { 'problem-1': 2 }
-  })
+  expect(updates).toHaveLength(1)
+  expect(updates[0].args[0].input.UpdateExpression).toBe('SET hintsRequested.#problemId = :hintNumber')
+  expect(JSON.stringify(updates[0].args[0].input)).not.toContain('problem-0')
+})
+
+test('never lowers a recorded hint and never writes to a completed session', async () => {
+  ddbMock.on(GetCommand).resolves({ Item: makeSession({ hintsRequested: { 'problem-1': 2 } }) })
+  const conditionalError = new Error('The conditional request failed')
+  conditionalError.name = 'ConditionalCheckFailedException'
+  ddbMock.on(UpdateCommand).rejects(conditionalError)
+
+  const response = await handler(makeEvent(1))
+
+  // The higher hint (or completion) already stands; the hint text is still served
+  expect(response.statusCode).toBe(200)
+  const record = ddbMock.commandCalls(UpdateCommand, { TableName: 'TestSessions' })[0].args[0].input
+  expect(record.ConditionExpression).toBe(
+    'isCompleted = :notCompleted AND (attribute_not_exists(hintsRequested.#problemId) OR hintsRequested.#problemId < :hintNumber)'
+  )
 })
 
 test('rejects hint requests for an already-answered problem', async () => {
