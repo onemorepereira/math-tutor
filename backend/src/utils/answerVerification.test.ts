@@ -59,3 +59,12 @@ test('reconciles problems whose generated answer is a JSON number', () => {
   expect(result.problems.map(p => p.id)).toEqual(['a'])
   expect(result.droppedIds).toEqual(['b'])
 })
+
+test('agrees on the same value with or without a unit, but not across units', () => {
+  const problems = [problem('a', '12 cm'), problem('b', '12 cm'), problem('c', '3x')]
+
+  const result = reconcileVerifiedAnswers(problems, { a: '12', b: '12 m', c: '3' })
+
+  expect(result.problems.map(p => p.id)).toEqual(['a'])
+  expect(result.droppedIds).toEqual(['b', 'c'])
+})
