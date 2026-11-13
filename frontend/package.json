@@ -12,7 +12,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "amazon-cognito-identity-js": "^6.3.16",
+    "amazon-cognito-identity-js": "6.3.18",
     "axios": "^1.18.0",
     "pinia": "^2.1.7",
     "vue": "^3.5.38",

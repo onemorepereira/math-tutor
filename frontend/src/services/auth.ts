@@ -1,5 +1,6 @@
 import axios from 'axios'
 import { sessionExpired } from './session'
+import { failFastOnServiceErrors } from './cognitoRetry'
 import type { User } from '@/types'
 import {
   CognitoUserPool,
@@ -28,6 +29,7 @@ const poolData = {
 }
 
 const userPool = new CognitoUserPool(poolData)
+failFastOnServiceErrors(userPool)
 
 /**
  * Fetch the user's profile, creating it if it doesn't exist yet (the register
