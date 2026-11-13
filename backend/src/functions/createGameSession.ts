@@ -5,6 +5,7 @@ import { dynamodb, USER_TABLE, GAME_SESSION_TABLE } from '../utils/dynamodb.js'
 import { generateMathProblems, verifyProblemAnswers } from '../utils/bedrock.js'
 import { sanitizeError, createSuccessResponse, createErrorResponse } from '../utils/errorHandler.js'
 import { validateDifficulty, validateProblemCount, validateSubcategories } from '../utils/validation.js'
+import { sanitizeGeneratedProblems } from '../utils/problemSanitizer.js'
 
 export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   try {
@@ -59,14 +60,10 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const generatedProblems = await generateMathProblems(difficulty, problemCount + 3, subcategories)
 
     // Add IDs to problems
-    const problemsWithIds = generatedProblems.map((p: any) => ({
+    const problemsWithIds = sanitizeGeneratedProblems(generatedProblems).map((p) => ({
       id: uuidv4(),
-      question: p.question,
-      correctAnswer: p.correctAnswer,
-      difficulty,
-      topic: p.topic,
-      maxPoints: p.maxPoints,
-      answerType: p.answerType || 'numeric'
+      ...p,
+      difficulty
     }))
 
     // Independently re-solve every problem and drop any whose answer disagrees
