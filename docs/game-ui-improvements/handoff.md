@@ -13,27 +13,27 @@ Branch `feat/game-ui-improvements`, Plane NINJA-14. Not deployed yet.
 
 ## Verification
 
-Backend `cd backend && npm test`: 97/97 (88 before). Frontend `cd frontend && npm test`: 76/76 (34 before), run 3 times with no flakes. `tsc --noEmit`, `vue-tsc --noEmit` and both production builds are clean. New tests were run red against the old code: grader 5 failing, HomeView 2/2 failing, style rules 2/5 failing.
+Backend `cd backend && npm test`: 99/99 (88 before). Frontend `cd frontend && npm test`: 77/77 (34 before), run 3 times with no flakes. `tsc --noEmit`, `vue-tsc --noEmit` and both production builds are clean. New tests were run red against the old code: grader 5 failing, HomeView 2/2 failing, style rules 2/5 failing.
 
-**Headless render** of the real app (Vite dev server, headless Chrome via `playwright-core@1.56.1`, at 375 px with touch and at 1280 px). Only the network was faked: Cognito tokens were seeded in localStorage and `/api` calls were answered by the harness. Result: **57/57 checks, 3 consecutive runs**. The harness is in `render-harness.mjs` and the screenshots are in `screenshots/`.
+**Headless render** of the real app (Vite dev server, headless Chrome via `playwright-core@1.56.1`, at 375 px with touch and at 1280 px). Only the network was faked: Cognito tokens were seeded in localStorage and `/api` calls were answered by the harness. Result: **65/65 checks, 3 consecutive runs**. The harness is in `render-harness.mjs` and the screenshots are in `screenshots/`.
 
 - [x] AC1: `GameView.test` "asks for the full keyboard"; render: `inputmode=text` on phone and desktop.
 - [x] AC2: `gameFeedback.test` formatTip; `GameView.test`. Render: the Fractions tip on problem 1, and the text tip on problem 4.
-- [x] AC3: `answerMatcher.test` "decorated numeric answers" (8 cases including rejections: `12 m`≠`12 cm`, `3`≠`3x`/`2pi`/`4 i`, `1,5`). `answerVerification.test` (ADR-6).
+- [x] AC3: `answerMatcher.test` "decorated numeric answers" (10 cases including rejections: `12 m`≠`12 cm`, `3`≠`3x`/`2pi`/`4 i`, `3`≠`3m`/`5h`/`2s`/`3g`, `1,5`). `answerVerification.test` (ADR-6).
 - [x] AC4, AC5: `GameView.test` "shows what the problem is worth…"; render: "⭐ 10 pts" and "💡 Hint −5 pts · 2 left".
 - [x] AC6: `GameView.test` "resumed problem"; render: a server resume with 2 hints shows the line and "0 left" (`phone-B2-resumed-hints.jpg`).
 - [x] AC7: `GameView.test` streak, praise and zero points; render: "Nailed it!", "🔥 2" in the header and "· 🔥 2 in a row" (`phone-C-correct-streak.jpg`).
 - [x] AC8: `ProblemExplanation.test` (loading, loaded, focus, retry, stale response, propagation) and `GameView.test` (echo plus Show me how). Render: echo, inline steps, and the error state with focus on Try again (`phone-D*.jpg`).
-- [x] AC9: `gameFeedback.test` and `GameView.test`; render: "Problem 1 of 4" while that problem's feedback is showing.
+- [x] AC9: `gameFeedback.test` and `GameView.test`; render: "Problem 1 of 4" while that problem's feedback is showing, with the progress bar measured at 25%.
 - [x] AC10:
   - `LeaveGameDialog.test` (6 tests, including Escape and the confirm fallback) and `GameView.test` (Exit and Keep playing, Leave with `replace`, no prompt for scorecard, login or reset).
   - Render:
     - Exit → the dialog is centred with Keep playing focused.
     - Escape stays in the game.
-    - **Browser Back opens the dialog.**
+    - **Browser Back opens the dialog**, and so does the header logo (desktop).
     - Leave → Home.
 - [x] AC11: `HomeView.test` (in-memory Continue without a fetch; a completed in-memory session falls back to the server) and `GameView.test` "continue after feedback". Render: Leave during feedback → Continue → "Problem 4 of 4".
-- [x] AC12: `GameView.test` "offers a way home". Not rendered, because the state can't be reached through the UI with a healthy fake API.
+- [x] AC12: `GameView.test` "offers a way home" and "shows no error while logging out". Not rendered, because the state can't be reached through the UI with a healthy fake API.
 - [x] AC13: `ProblemExplanation.test` "stale response" and "Try again". The scorecard now uses that component.
 - [x] AC14: `GameView.test` checks that the same always-mounted announcer carries the result, and that Enter on Show me how doesn't advance. Render: the announcer text for the hint and the correct answer; Enter on Show me how keeps the card.
 - [x] AC15: `styles.test.ts`; render: computed `solid 3px rgb(76, 81, 191)` on keyboard focus.
@@ -76,7 +76,14 @@ Backend `cd backend && npm test`: 97/97 (88 before). Frontend `cd frontend && np
 - Verify: the headless render found a real bug (the dialog pinned top-left by the global margin reset), fixed in `dc525fc`. Two harness artifacts were diagnosed rather than papered over:
   - The touch emulation was dropped after a full-page screenshot.
   - The 0.3 s `.btn` transition delays the focus ring colour.
-- Verify gate: see the PR (subagent review).
+- Verify gate: subagent, 1 pass, **1 blocker**, fixed in `fix(backend): read a letter stuck to a number as a variable`.
+  - The blocker: one-letter units `m g h s l` stripped algebra variables, so `3` passed for `3m`. One-letter units now need a space, with 2 new tests.
+  - Minors fixed:
+    - The phone screenshots showed the Enter hint (full-page captures drop touch emulation): phones now use viewport captures, with the touch rule asserted at capture time.
+    - The progress bar is now measured.
+    - The header logo is now clicked in the render.
+    - The load-failure message no longer flashes during logout.
+  - Minors accepted (below).
 - Launch: self review, 1 pass.
 
 ## Specialists consulted
@@ -89,6 +96,12 @@ Experience (Product Designer: two-round review and approval; Frontend: all state
 - `@vue/test-utils` pinned at 2.4.11 rather than the latest 2.5.1 (advisories, above). `jsdom` pinned at 30.1.3 rather than 31 (a week old).
 - `restartProblemClock` (new store action): returning to a problem no longer counts the time spent away.
 - See also "Build notes (deviations)" in `design.md`.
+
+## Accepted minors (Verify gate)
+- If a kid leaves during the **last** problem's feedback and the `/end` call then fails on Continue, the answered problem shows again. Resubmitting goes through the existing 409 resync to the scorecard, so they're not stuck. Untested.
+- `$5 cm` and `x = $5 cm` are accepted for `5`. That's harmless leniency.
+- A bare number is accepted for an answer with an area or volume unit (`12` = `12 cm²`). This follows the "strip" choice.
+- Double-submit and two tabs weren't attacked. The input is disabled while submitting (unchanged), and a second tab already hits the existing 409 resync.
 
 ## Follow-ups
 - Stop sending `correctAnswer` to the browser with the session (any kid can read the answers in devtools).

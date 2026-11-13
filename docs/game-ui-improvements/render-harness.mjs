@@ -96,7 +96,17 @@ async function startGame(page) {
 }
 
 const mm = async (page, label) => console.log('   media', label, await page.evaluate(() => matchMedia('(pointer: coarse)').matches))
-const shot = (page, name) => page.screenshot({ path: `${SHOTS}${name}.png`, fullPage: true })
+const shot = async (page, name) => {
+  await page.waitForTimeout(400) // let 0.3s transitions (progress bar, buttons) finish
+  const phone = page.viewportSize().width < 500
+  // Full-page captures drop touch emulation on phones, so phones get a
+  // viewport capture, and the touch-only rule is asserted at capture time
+  if (phone) {
+    const hint = page.locator('.feedback-card .hint-text')
+    if (await hint.count()) check(`${name}: Enter hint hidden at capture`, await hint.evaluate((el) => getComputedStyle(el).display === 'none'))
+  }
+  await page.screenshot({ path: `${SHOTS}${name}.png`, fullPage: !phone })
+}
 
 const browser = await chromium.launch({ executablePath: '/usr/bin/google-chrome', headless: true })
 try {
@@ -128,6 +138,9 @@ try {
     await input.fill('3/4')
     await page.keyboard.press('Enter')
     await page.waitForSelector('[data-test="feedback"]')
+    await page.waitForTimeout(400)
+    const fill = await page.locator('[data-test="progress-fill"]').evaluate((el) => Math.round(el.getBoundingClientRect().width / el.parentElement.getBoundingClientRect().width * 100))
+    check(`${tag} C progress counts answered problems`, fill === 25, `${fill}%`)
     check(`${tag} C counter stays on answered problem`, (await page.locator('[data-test="problem-number"]').textContent()).trim() === 'Problem 1 of 4')
     check(`${tag} C feedback focused`, await page.evaluate(() => document.activeElement?.dataset.test === 'feedback'))
     const hintTextVisible = await page.locator('.feedback-card .hint-text').evaluate((el) => getComputedStyle(el).display !== 'none')
@@ -182,6 +195,15 @@ try {
     await page.goBack()
     await page.waitForSelector('dialog[open]', { timeout: 3000 })
     check(`${tag} E browser Back asks first`, new URL(page.url()).pathname === '/game')
+    if (!mobile) {
+      // The header logo is another way out
+      await page.locator('[data-test="keep-playing"]').click()
+      await page.waitForFunction(() => !document.querySelector('dialog[open]'))
+      await page.waitForTimeout(300)
+      await page.locator('.logo-link').click()
+      await page.waitForSelector('dialog[open]', { timeout: 3000 })
+      check('desktop E header logo asks first', new URL(page.url()).pathname === '/game')
+    }
     await page.locator('[data-test="leave"]').click()
     await page.waitForSelector('.resume-card')
     check(`${tag} F Home offers Continue`, true)
