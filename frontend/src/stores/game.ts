@@ -83,6 +83,13 @@ export const useGameStore = defineStore('game', () => {
     }
   }
 
+  // Time spent away from the game (Home, another tab's navigation) shouldn't
+  // count against the problem when the player comes back to it
+  function restartProblemClock() {
+    problemStartTime.value = Date.now()
+    if (currentAttempt.value) currentAttempt.value.startTime = problemStartTime.value
+  }
+
   async function requestHint() {
     const session = currentSession.value
     const problem = currentProblem.value
@@ -198,6 +205,7 @@ export const useGameStore = defineStore('game', () => {
     startNewGame,
     resumeSession,
     loadNextProblem,
+    restartProblemClock,
     requestHint,
     submitAnswer,
     endGame,

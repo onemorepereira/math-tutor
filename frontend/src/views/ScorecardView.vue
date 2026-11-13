@@ -77,27 +77,7 @@
             </div>
 
             <div v-if="expandedProblem === attempt.problemId" class="explanation-section">
-              <div v-if="loadingExplanation" class="loading-explanation">
-                Loading explanation...
-              </div>
-              <div v-else-if="currentExplanation" class="explanation-content">
-                <h4>How to Solve This:</h4>
-                <p class="explanation-text">{{ currentExplanation.explanation }}</p>
-
-                <div v-if="currentExplanation.steps.length > 0" class="steps-section">
-                  <h5>Step by Step:</h5>
-                  <ol class="steps-list">
-                    <li v-for="(step, index) in currentExplanation.steps" :key="index">
-                      {{ step }}
-                    </li>
-                  </ol>
-                </div>
-
-                <div class="insight-section">
-                  <h5>Insight:</h5>
-                  <p class="insight-text">{{ currentExplanation.ageAppropriateInsight }}</p>
-                </div>
-              </div>
+              <ProblemExplanation :problem-id="attempt.problemId" autoload />
             </div>
           </div>
         </div>
@@ -124,16 +104,14 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useGameStore } from '@/stores/game'
-import type { SolutionExplanation } from '@/types'
 import { formatClock } from '@/utils/time'
 import ConfettiBurst from '@/components/ConfettiBurst.vue'
+import ProblemExplanation from '@/components/ProblemExplanation.vue'
 
 const router = useRouter()
 const gameStore = useGameStore()
 
 const expandedProblem = ref<string | null>(null)
-const currentExplanation = ref<SolutionExplanation | null>(null)
-const loadingExplanation = ref(false)
 const loadError = ref<string | null>(null)
 
 const scorecard = computed(() => gameStore.scorecard)
@@ -181,24 +159,9 @@ function getScoreMessage(): string {
   }
 }
 
-async function toggleExplanation(problemId: string) {
-  if (expandedProblem.value === problemId) {
-    expandedProblem.value = null
-    currentExplanation.value = null
-    return
-  }
-
-  expandedProblem.value = problemId
-  loadingExplanation.value = true
-
-  try {
-    const explanation = await gameStore.getSolutionExplanation(problemId)
-    currentExplanation.value = explanation
-  } catch (error) {
-    console.error('Failed to load explanation:', error)
-  } finally {
-    loadingExplanation.value = false
-  }
+function toggleExplanation(problemId: string) {
+  // ProblemExplanation loads (and guards against stale responses) on its own
+  expandedProblem.value = expandedProblem.value === problemId ? null : problemId
 }
 
 function playAgain() {
@@ -414,57 +377,14 @@ function goHome() {
   border-top: 2px solid #e9ecef;
 }
 
-.loading-explanation {
-  text-align: center;
-  padding: 2rem;
-  color: #6c757d;
-}
 
-.explanation-content {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-}
 
-.explanation-content h4,
-.explanation-content h5 {
-  color: #667eea;
-  margin-bottom: 0.5rem;
-}
 
-.explanation-text {
-  color: #333;
-  line-height: 1.6;
-}
 
-.steps-section {
-  background: #f8f9fa;
-  padding: 1rem;
-  border-radius: 4px;
-}
 
-.steps-list {
-  margin: 0.5rem 0 0 1.5rem;
-  color: #333;
-}
 
-.steps-list li {
-  margin-bottom: 0.5rem;
-  line-height: 1.6;
-}
 
-.insight-section {
-  background: #e7f3ff;
-  padding: 1rem;
-  border-radius: 4px;
-  border-left: 4px solid #0066cc;
-}
 
-.insight-text {
-  color: #0066cc;
-  line-height: 1.6;
-  margin: 0;
-}
 
 .actions-section {
   display: flex;

@@ -105,6 +105,75 @@ export function numericValue(str: string): number | null {
   return null
 }
 
+// Units a kid (or the model) may write after a number, mapped to one canonical
+// spelling. Only these are stripped, so variables and constants ("3x", "2pi",
+// "4 i") never collapse into a bare number.
+const LENGTH_UNITS: Record<string, string> = {
+  mm: 'mm', cm: 'cm', m: 'm', km: 'km',
+  in: 'in', inch: 'in', inches: 'in',
+  ft: 'ft', foot: 'ft', feet: 'ft',
+  yd: 'yd', yard: 'yd', yards: 'yd',
+  mi: 'mi', mile: 'mi', miles: 'mi'
+}
+
+const OTHER_UNITS: Record<string, string> = {
+  g: 'g', kg: 'kg', mg: 'mg', lb: 'lb', lbs: 'lb', oz: 'oz',
+  l: 'l', ml: 'ml', liter: 'l', liters: 'l', litre: 'l', litres: 'l',
+  s: 's', sec: 's', secs: 's', second: 's', seconds: 's',
+  min: 'min', mins: 'min', minute: 'min', minutes: 'min',
+  h: 'h', hr: 'h', hrs: 'h', hour: 'h', hours: 'h',
+  day: 'day', days: 'day', week: 'week', weeks: 'week', year: 'year', years: 'year',
+  degree: '°', degrees: '°', '°': '°'
+}
+
+// A single letter written straight after a number ("3m", "5h") is a variable
+// in algebra, not a unit; only "3 m" (with a space) reads as a unit
+function isUnitToken(token: string, gap: string): boolean {
+  return token.length > 1 || !/^[a-z]$/.test(token) || gap.length > 0
+}
+
+function splitUnit(s: string): { rest: string; unit: string | null } {
+  const areaOrVolume = s.match(/^(.*?)\s*(square|cubic)\s+([a-z]+)$/)
+  if (areaOrVolume && LENGTH_UNITS[areaOrVolume[3]]) {
+    return { rest: areaOrVolume[1], unit: LENGTH_UNITS[areaOrVolume[3]] + (areaOrVolume[2] === 'square' ? '²' : '³') }
+  }
+
+  const powered = s.match(/^(.*?)(\s*)([a-z]+)\s*([²³])$/)
+  if (powered && LENGTH_UNITS[powered[3]] && isUnitToken(powered[3], powered[2])) {
+    return { rest: powered[1], unit: LENGTH_UNITS[powered[3]] + powered[4] }
+  }
+
+  const plain = s.match(/^(.*?)(\s*)(°|[a-z]+)$/)
+  const unit = plain && (LENGTH_UNITS[plain[3]] ?? OTHER_UNITS[plain[3]])
+  if (plain && unit && plain[1] && isUnitToken(plain[3], plain[2])) {
+    return { rest: plain[1], unit }
+  }
+
+  return { rest: s, unit: null }
+}
+
+/**
+ * Numeric value and unit of an answer written with everyday decorations:
+ * "x = 5", "$1,250", "12 cm", "45°", "6 square feet". Null when what is left
+ * after removing them is not a number (so text answers are never affected).
+ */
+export function parseDecorated(answer: string): { value: number; unit: string | null } | null {
+  let s = String(answer).toLowerCase().trim()
+  s = s.replace(/^[a-z]\s*=\s*/, '')
+  s = s.replace(/^\$\s*/, '')
+
+  const { rest, unit } = splitUnit(s)
+  let number = rest.trim()
+
+  // Thousands separators only in groups of three ("1,000"), so "1,5" stays non-numeric
+  if (/^-?\d{1,3}(,\d{3})+(\.\d+)?$/.test(number)) {
+    number = number.replace(/,/g, '')
+  }
+
+  const value = numericValue(number)
+  return value === null ? null : { value, unit }
+}
+
 export function checkAnswerCorrect(userAnswer: string, correctAnswer: string): boolean {
   // First try exact match (normalized)
   if (normalizeAnswer(userAnswer) === normalizeAnswer(correctAnswer)) {
@@ -122,6 +191,15 @@ export function checkAnswerCorrect(userAnswer: string, correctAnswer: string): b
   const correctValue = numericValue(correctAnswer)
   if (userValue !== null && correctValue !== null) {
     return Math.abs(userValue - correctValue) < 1e-9
+  }
+
+  // Last, the same value written with units, "x =", "$" or thousands commas;
+  // when both sides name a unit it has to be the same one
+  const user = parseDecorated(userAnswer)
+  const correct = parseDecorated(correctAnswer)
+  if (user && correct) {
+    if (user.unit && correct.unit && user.unit !== correct.unit) return false
+    return Math.abs(user.value - correct.value) < 1e-9
   }
 
   return false

@@ -1,17 +1,26 @@
 <template>
   <div class="game-view">
+    <!-- Always mounted so screen readers announce changes to its text -->
+    <div class="sr-only" role="status" aria-live="polite" data-test="announcer">{{ announcement }}</div>
+
     <div v-if="isLoading && !currentProblem" class="loading">
       Loading your math problems
     </div>
 
-    <div v-else-if="currentProblem" class="game-container">
+    <div v-else-if="currentProblem && currentSession" class="game-container">
       <div class="game-header">
         <div class="progress-info">
-          <h3>Problem {{ Math.min(currentProblemNumber, totalProblems) }} of {{ totalProblems }}</h3>
+          <div class="progress-title">
+            <button type="button" class="btn-exit" aria-label="Exit game" data-test="exit" @click="exitGame">
+              ✕ Exit
+            </button>
+            <h3 data-test="problem-number">Problem {{ problemNumber }} of {{ totalProblems }}</h3>
+          </div>
           <div class="progress-bar">
             <div
               class="progress-fill"
-              :style="{ width: `${(Math.min(currentProblemNumber, totalProblems) / totalProblems) * 100}%` }"
+              data-test="progress-fill"
+              :style="{ width: `${(answered / totalProblems) * 100}%` }"
             ></div>
           </div>
         </div>
@@ -19,18 +28,27 @@
         <div class="game-stats">
           <div class="stat">
             <span class="stat-label">Score:</span>
-            <span class="stat-value" :class="{ 'score-pop': scorePopping }">{{ currentSession?.totalScore || 0 }}</span>
+            <span class="stat-value" :class="{ 'score-pop': scorePopping }">{{ currentSession.totalScore || 0 }}</span>
+          </div>
+          <div v-if="streak >= 2" class="stat streak" data-test="header-streak" :aria-label="`${streak} correct in a row`">
+            🔥 {{ streak }}
           </div>
         </div>
       </div>
 
       <div class="problem-card card">
         <div class="problem-content">
-          <div class="problem-topic">{{ currentProblem.topic }}</div>
+          <div class="problem-meta">
+            <span class="problem-topic">{{ currentProblem.topic }}</span>
+            <span class="problem-points" data-test="points-chip">⭐ {{ currentProblem.maxPoints }} pts</span>
+          </div>
           <h2 class="problem-question">{{ currentProblem.question }}</h2>
 
-          <div v-if="hintsReceived.length > 0" class="hints-section">
+          <div v-if="hintsReceived.length > 0 || missingHintCount > 0" class="hints-section">
             <h4>Hints:</h4>
+            <p v-if="missingHintCount > 0" class="hint-item" data-test="used-hints">
+              {{ hintPenaltyLine(hintsUsedCount) }}
+            </p>
             <div v-for="hint in hintsReceived" :key="hint.hintNumber" class="hint-item">
               <strong>Hint {{ hint.hintNumber }}:</strong> {{ hint.content }}
               <span class="hint-penalty">(-{{ hint.pointDeduction }} points)</span>
@@ -46,18 +64,25 @@
                 ref="answerInput"
                 v-model="userAnswer"
                 type="text"
-                :inputmode="answerInputMode"
+                inputmode="text"
+                autocapitalize="off"
+                autocorrect="off"
+                spellcheck="false"
+                autocomplete="off"
                 placeholder="Enter your answer"
+                aria-describedby="answer-tip"
                 @keyup.enter="handleSubmit"
                 :disabled="isSubmitting"
-                autocomplete="off"
               />
+              <p id="answer-tip" class="format-tip" data-test="format-tip">{{ formatTip(currentProblem) }}</p>
             </div>
 
             <div class="action-buttons">
               <button
+                type="button"
                 @click="handleHintRequest"
                 class="btn btn-secondary"
+                data-test="hint-button"
                 :disabled="!canRequestHint || isLoading"
               >
                 <span v-if="isLoading && !isSubmitting">
@@ -65,13 +90,15 @@
                   Getting hint...
                 </span>
                 <span v-else>
-                  Request Hint ({{ 2 - hintsUsedCount }} left)
+                  💡 Hint −{{ HINT_COST }} pts · {{ 2 - hintsUsedCount }} left
                 </span>
               </button>
 
               <button
+                type="button"
                 @click="handleSubmit"
                 class="btn btn-primary"
+                data-test="submit"
                 :disabled="!userAnswer.trim() || isSubmitting || isLoading"
               >
                 <span v-if="isSubmitting">
@@ -85,66 +112,172 @@
         </div>
       </div>
 
-      <div v-if="feedback" ref="feedbackCard" class="feedback-card card" :class="feedback.type" @keyup.enter="handleNextProblem" tabindex="0">
-        <h3>{{ feedback.message }}</h3>
-        <p v-if="feedback.details">{{ feedback.details }}</p>
-        <button @click="handleNextProblem" class="btn btn-primary">
-          {{ currentProblemNumber > totalProblems ? 'View Scorecard' : 'Next Problem' }}
+      <div
+        v-if="feedback"
+        ref="feedbackCard"
+        class="feedback-card card"
+        :class="feedback.kind === 'correct' ? 'success' : 'error'"
+        data-test="feedback"
+        tabindex="0"
+        @keyup.enter.self="handleNextProblem"
+      >
+        <template v-if="feedback.kind === 'correct'">
+          <h3>{{ feedback.title }} <span aria-hidden="true">🎉</span></h3>
+          <p v-if="feedback.pointsEarned > 0" class="feedback-detail">
+            +{{ feedback.pointsEarned }} points
+            <span v-if="feedback.streak >= 2" data-test="feedback-streak"> · 🔥 {{ feedback.streak }} in a row</span>
+          </p>
+          <p v-else class="feedback-detail">The hints used up this one's points, but you solved it 💪</p>
+        </template>
+
+        <template v-else>
+          <h3>Not quite right</h3>
+          <dl class="answer-compare">
+            <div>
+              <dt>You said</dt>
+              <dd data-test="you-said">{{ feedback.userAnswer }}</dd>
+            </div>
+            <div>
+              <dt>Answer</dt>
+              <dd data-test="right-answer">{{ feedback.correctAnswer }}</dd>
+            </div>
+          </dl>
+          <ProblemExplanation :problem-id="feedback.problemId" />
+        </template>
+
+        <button type="button" @click="handleNextProblem" class="btn btn-primary" data-test="next">
+          {{ answered >= totalProblems ? 'View Scorecard' : 'Next Problem' }}
         </button>
         <p class="hint-text">Press Enter to continue</p>
       </div>
+
+      <LeaveGameDialog :open="leaveDialogOpen" @leave="confirmLeave" @stay="cancelLeave" />
     </div>
 
-    <div v-else class="error-message">
-      Failed to load game. Please try again.
+    <!-- Only when a game exists but can't be shown: after logout (no session)
+         the view is about to leave, so it renders nothing instead -->
+    <div v-else-if="currentSession" class="load-failure card" data-test="load-failure">
+      <p>We couldn't load your game.</p>
+      <button type="button" class="btn btn-primary" @click="router.push({ name: 'home' })">Back to Home</button>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, nextTick } from 'vue'
-import { useRouter } from 'vue-router'
+import { onBeforeRouteLeave, useRouter } from 'vue-router'
 import { useGameStore } from '@/stores/game'
+import ProblemExplanation from '@/components/ProblemExplanation.vue'
+import LeaveGameDialog from '@/components/LeaveGameDialog.vue'
+import {
+  HINT_COST,
+  formatTip,
+  praiseFor,
+  currentStreak,
+  displayedProblemNumber,
+  answeredCount,
+  hintPenaltyLine
+} from '@/utils/gameFeedback'
+
+interface Feedback {
+  kind: 'correct' | 'wrong'
+  title: string
+  pointsEarned: number
+  streak: number
+  userAnswer: string
+  correctAnswer: string
+  problemId: string
+}
 
 const router = useRouter()
 const gameStore = useGameStore()
 
 const userAnswer = ref('')
 const isSubmitting = ref(false)
-const feedback = ref<{ type: string; message: string; details?: string } | null>(null)
+const feedback = ref<Feedback | null>(null)
 const submitError = ref<string | null>(null)
+const announcement = ref('')
 const feedbackCard = ref<HTMLDivElement | null>(null)
 const answerInput = ref<HTMLInputElement | null>(null)
 const scorePopping = ref(false)
+const leaveDialogOpen = ref(false)
+let leaveConfirmed = false
+let pendingLeave: string | null = null
 let scorePopTimeout: number | null = null
 
 const currentProblem = computed(() => gameStore.currentProblem)
 const currentSession = computed(() => gameStore.currentSession)
-const currentProblemNumber = computed(() => gameStore.currentProblemNumber)
 const totalProblems = computed(() => gameStore.totalProblems)
 const isLoading = computed(() => gameStore.isLoading)
 const canRequestHint = computed(() => gameStore.canRequestHint)
 const hintsUsedCount = computed(() => gameStore.hintsUsedCount)
 const hintsReceived = computed(() => gameStore.hintsReceived)
 
-// Dynamic input mode based on answer type and topic
-const answerInputMode = computed(() => {
-  // Use text input for text answers or fraction problems (need "/" key)
-  if (currentProblem.value?.answerType === 'text') return 'text'
-  if (currentProblem.value?.topic === 'Fractions') return 'text'
-  return 'decimal'
-})
+const problemNumber = computed(() =>
+  currentSession.value ? displayedProblemNumber(currentSession.value, currentProblem.value) : 0
+)
+const answered = computed(() => answeredCount(currentSession.value))
+const streak = computed(() => currentStreak(currentSession.value?.attempts ?? []))
+// Hints recorded server-side whose text is gone (the game was resumed)
+const missingHintCount = computed(() => Math.max(0, hintsUsedCount.value - hintsReceived.value.length))
 
 onMounted(async () => {
-  if (!currentSession.value) {
+  const session = currentSession.value
+  if (!session) {
     router.push({ name: 'home' })
     return
   }
 
-  // Focus the answer input on initial load
+  // Left while a problem's feedback was showing: its answer is recorded, so
+  // continue with the next problem instead of offering it again
+  const problem = currentProblem.value
+  if (problem && session.attempts.some((a) => a.problemId === problem.id)) {
+    try {
+      await gameStore.loadNextProblem()
+    } catch {
+      // The load-failure state below offers a way home
+    }
+    if (gameStore.scorecard) {
+      router.push({ name: 'scorecard' })
+      return
+    }
+  } else {
+    gameStore.restartProblemClock()
+  }
+
   await nextTick()
   answerInput.value?.focus()
 })
+
+// Every way out of an unfinished game (Exit, the logo, browser back) asks first
+onBeforeRouteLeave((to) => {
+  if (to.name === 'scorecard' || to.name === 'login') return true
+  const session = gameStore.currentSession
+  if (!session || session.isCompleted || !gameStore.currentProblem || leaveConfirmed) return true
+
+  pendingLeave = to.fullPath
+  leaveDialogOpen.value = true
+  return false
+})
+
+function exitGame() {
+  router.push({ name: 'home' })
+}
+
+function confirmLeave() {
+  leaveDialogOpen.value = false
+  leaveConfirmed = true
+  // Replace, so Back from Home doesn't land on the game again
+  router.replace(pendingLeave ?? { name: 'home' })
+}
+
+async function cancelLeave() {
+  leaveDialogOpen.value = false
+  pendingLeave = null
+  await nextTick()
+  if (feedback.value) feedbackCard.value?.focus()
+  else answerInput.value?.focus()
+}
 
 // Briefly pop the score when it changes
 watch(() => currentSession.value?.totalScore, (newScore, oldScore) => {
@@ -161,38 +294,58 @@ async function handleHintRequest() {
     const hint = await gameStore.requestHint()
     if (hint) {
       feedback.value = null
+      announcement.value = `Hint ${hint.hintNumber}: ${hint.content}`
     }
   } catch (error) {
     console.error('Failed to get hint:', error)
   }
+  await nextTick()
+  answerInput.value?.focus()
 }
 
 async function handleSubmit() {
-  if (!userAnswer.value.trim()) return
+  const answer = userAnswer.value
+  if (!answer.trim()) return
 
+  const problem = currentProblem.value
   isSubmitting.value = true
   feedback.value = null
   submitError.value = null
 
   try {
-    const result = await gameStore.submitAnswer(userAnswer.value)
+    const result = await gameStore.submitAnswer(answer)
 
-    if (!result) {
+    if (!result || !problem) {
       return
     }
 
+    const attempts = currentSession.value?.attempts ?? []
     if (result.isCorrect) {
+      const title = praiseFor(Math.max(0, attempts.length - 1))
+      const currentRun = currentStreak(attempts)
       feedback.value = {
-        type: 'success',
-        message: 'Correct!',
-        details: `You earned ${result.pointsEarned} points!`
+        kind: 'correct',
+        title,
+        pointsEarned: result.pointsEarned,
+        streak: currentRun,
+        userAnswer: answer,
+        correctAnswer: result.correctAnswer,
+        problemId: problem.id
       }
+      announcement.value = result.pointsEarned > 0
+        ? `${title} +${result.pointsEarned} points`
+        : `${title} The hints used up this one's points, but you solved it.`
     } else {
       feedback.value = {
-        type: 'error',
-        message: 'Not quite right',
-        details: `The correct answer was ${result.correctAnswer}. You'll get the next one!`
+        kind: 'wrong',
+        title: 'Not quite right',
+        pointsEarned: 0,
+        streak: 0,
+        userAnswer: answer,
+        correctAnswer: result.correctAnswer,
+        problemId: problem.id
       }
+      announcement.value = `Not quite right. The answer is ${result.correctAnswer}.`
     }
 
     // Focus the feedback card so Enter advances to the next problem
@@ -237,8 +390,9 @@ async function handleNextProblem() {
   feedback.value = null
   submitError.value = null
   userAnswer.value = ''
+  announcement.value = ''
 
-  if (currentProblemNumber.value > totalProblems.value) {
+  if (answered.value >= totalProblems.value) {
     router.push({ name: 'scorecard' })
   } else {
     await gameStore.loadNextProblem()
@@ -282,9 +436,31 @@ async function handleNextProblem() {
   min-width: 250px;
 }
 
-.progress-info h3 {
+.progress-title {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
   margin-bottom: 0.5rem;
+}
+
+.progress-info h3 {
+  margin: 0;
   color: #333;
+}
+
+.btn-exit {
+  background: none;
+  border: 2px solid #ced4da;
+  border-radius: 6px;
+  padding: 0.35rem 0.75rem;
+  min-height: 44px;
+  font-size: 0.9rem;
+  color: #495057;
+  cursor: pointer;
+}
+
+.btn-exit:hover {
+  border-color: #6c757d;
 }
 
 .progress-bar {
@@ -322,6 +498,12 @@ async function handleNextProblem() {
   color: #667eea;
 }
 
+.streak {
+  font-size: 1.25rem;
+  font-weight: bold;
+  color: #c2410c;
+}
+
 .stat-value.score-pop {
   animation: score-pop 0.7s ease;
 }
@@ -341,6 +523,23 @@ async function handleNextProblem() {
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
+}
+
+.problem-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.problem-points {
+  padding: 0.25rem 0.75rem;
+  background: #ffe8a3;
+  color: #5a3e00;
+  border-radius: 999px;
+  font-size: 0.875rem;
+  font-weight: 600;
 }
 
 .problem-topic {
@@ -381,7 +580,8 @@ async function handleNextProblem() {
 }
 
 .hint-penalty {
-  color: #dc3545;
+  /* 6.65:1 on the hint background (#fff3cd), WCAG AA */
+  color: #a71d2a;
   font-size: 0.875rem;
   margin-left: 0.5rem;
 }
@@ -392,9 +592,19 @@ async function handleNextProblem() {
   gap: 1rem;
 }
 
+.answer-section .form-group {
+  margin-bottom: 0;
+}
+
 .answer-section input {
   font-size: 1.1rem;
   padding: 1rem;
+}
+
+.format-tip {
+  margin-top: 0.5rem;
+  font-size: 0.9rem;
+  color: #495057;
 }
 
 .action-buttons {
@@ -422,6 +632,45 @@ async function handleNextProblem() {
   margin-bottom: 0.5rem;
 }
 
+.feedback-detail {
+  font-size: 1.1rem;
+  color: #333;
+}
+
+.answer-compare {
+  display: inline-grid;
+  grid-template-columns: auto auto;
+  gap: 0.35rem 1rem;
+  margin: 0.5rem auto 0;
+  text-align: left;
+  font-size: 1.1rem;
+}
+
+.answer-compare > div {
+  display: contents;
+}
+
+.answer-compare dt {
+  color: #495057;
+}
+
+.answer-compare dd {
+  margin: 0;
+  font-family: var(--font-math);
+  font-weight: 600;
+  color: #333;
+}
+
+.load-failure {
+  text-align: center;
+  padding: 2rem;
+}
+
+.load-failure p {
+  margin-bottom: 1rem;
+  font-size: 1.1rem;
+}
+
 .feedback-card button {
   margin-top: 1rem;
 }
@@ -429,12 +678,15 @@ async function handleNextProblem() {
 .feedback-card .hint-text {
   margin-top: 0.5rem;
   font-size: 0.875rem;
-  color: #6c757d;
+  color: #495057;
   font-style: italic;
 }
 
-.feedback-card:focus {
-  outline: none;
+/* Touch screens have no Enter key to press */
+@media (hover: none) and (pointer: coarse) {
+  .feedback-card .hint-text {
+    display: none;
+  }
 }
 
 .spinner {
@@ -521,7 +773,8 @@ async function handleNextProblem() {
   }
 
   .problem-question {
-    font-size: 1.25rem;
+    /* Early readers on phones: keep the question large */
+    font-size: 1.5rem;
     line-height: 1.5;
   }
 
@@ -579,7 +832,7 @@ async function handleNextProblem() {
   }
 
   .problem-question {
-    font-size: 1.1rem;
+    font-size: 1.5rem;
   }
 
   .game-stats {

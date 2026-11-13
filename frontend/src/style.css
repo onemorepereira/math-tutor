@@ -120,9 +120,54 @@ strong, b {
 
 .form-group input:focus,
 .form-group select:focus {
-  outline: none;
   border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+/* A clearly visible keyboard focus ring (WCAG 1.4.11: 6.49:1 on white) */
+:focus-visible {
+  outline: 3px solid #4c51bf;
+  outline-offset: 2px;
+}
+
+/* On the header's purple-to-pink gradient no single colour reaches 3:1
+   everywhere, so pair a white ring with a dark halo */
+.app-header :focus-visible {
+  outline: 3px solid #ffffff;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 6px #1f1147;
+}
+
+/* Visually hidden, still read by screen readers */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Respect "reduce motion": no pops, bounces, confetti falls or lifts */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    animation-delay: 0ms !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .btn:hover,
+  .btn-primary:hover,
+  .btn-secondary:hover,
+  .btn-success:hover {
+    transform: none !important;
+  }
 }
 
 .error-message {
