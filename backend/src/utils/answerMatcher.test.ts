@@ -174,3 +174,29 @@ describe('fraction and decimal equivalence', () => {
     expect(checkAnswerCorrect('triangle', 'square')).toBe(false)
   })
 })
+
+describe('checkAnswerCorrect — non-string answers from the model', () => {
+  it('grades a wrong answer incorrect when correctAnswer is a JSON number', () => {
+    expect(checkAnswerCorrect('41', 42 as unknown as string)).toBe(false)
+  })
+
+  it('grades a right answer correct when correctAnswer is a JSON number', () => {
+    expect(checkAnswerCorrect('42', 42 as unknown as string)).toBe(true)
+    expect(checkAnswerCorrect('0.5', 0.5 as unknown as string)).toBe(true)
+  })
+})
+
+describe('checkAnswerCorrect — spaces between digits', () => {
+  it('does not merge separated digit groups into one number', () => {
+    expect(checkAnswerCorrect('4 2', '42')).toBe(false)
+    expect(checkAnswerCorrect('1 1/2', '11/2')).toBe(false)
+  })
+
+  it('reads a mixed number as whole plus fraction', () => {
+    expect(checkAnswerCorrect('1 1/2', '3/2')).toBe(true)
+    expect(checkAnswerCorrect('1 1/2', '1.5')).toBe(true)
+    expect(checkAnswerCorrect('3/2', '1 1/2')).toBe(true)
+    expect(checkAnswerCorrect('-2 1/4', '-9/4')).toBe(true)
+    expect(checkAnswerCorrect('2 1/4', '-9/4')).toBe(false)
+  })
+})

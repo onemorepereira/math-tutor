@@ -185,7 +185,12 @@ const resumableLabel = computed(() => {
 })
 
 onMounted(async () => {
-  if (!isAuthenticated.value || gameStore.currentSession) return
+  if (!isAuthenticated.value) return
+
+  // A finished game credits score server-side; show the updated belt
+  authStore.refreshUser()
+
+  if (gameStore.currentSession) return
 
   try {
     const stats = await authService.getUserStats()

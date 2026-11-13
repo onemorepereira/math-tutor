@@ -92,6 +92,8 @@ export function validateDifficulty(difficulty: string): ValidationResult {
 /**
  * Validate problem count
  */
+export const MAX_PROBLEM_COUNT = 20
+
 export function validateProblemCount(count: number): ValidationResult {
   if (typeof count !== 'number' || isNaN(count)) {
     return { isValid: false, error: 'Problem count must be a number' }
@@ -101,8 +103,10 @@ export function validateProblemCount(count: number): ValidationResult {
     return { isValid: false, error: 'Problem count must be an integer' }
   }
 
-  if (count < 1 || count > 50) {
-    return { isValid: false, error: 'Problem count must be between 1 and 50' }
+  // One generation call must fit every problem (plus spares) in its output
+  // budget; the UI offers at most 20
+  if (count < 1 || count > MAX_PROBLEM_COUNT) {
+    return { isValid: false, error: `Problem count must be between 1 and ${MAX_PROBLEM_COUNT}` }
   }
 
   return { isValid: true }

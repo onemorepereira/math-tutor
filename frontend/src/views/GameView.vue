@@ -38,6 +38,7 @@
           </div>
 
           <div v-if="!feedback" class="answer-section">
+            <div v-if="submitError" class="error-message" role="alert">{{ submitError }}</div>
             <div class="form-group">
               <label for="answer">Your Answer:</label>
               <input
@@ -111,6 +112,7 @@ const gameStore = useGameStore()
 const userAnswer = ref('')
 const isSubmitting = ref(false)
 const feedback = ref<{ type: string; message: string; details?: string } | null>(null)
+const submitError = ref<string | null>(null)
 const feedbackCard = ref<HTMLDivElement | null>(null)
 const answerInput = ref<HTMLInputElement | null>(null)
 const scorePopping = ref(false)
@@ -170,6 +172,7 @@ async function handleSubmit() {
 
   isSubmitting.value = true
   feedback.value = null
+  submitError.value = null
 
   try {
     const result = await gameStore.submitAnswer(userAnswer.value)
@@ -195,20 +198,44 @@ async function handleSubmit() {
     // Focus the feedback card so Enter advances to the next problem
     await nextTick()
     feedbackCard.value?.focus()
-  } catch (error) {
+  } catch (error: any) {
     console.error('Failed to submit answer:', error)
-    feedback.value = {
-      type: 'error',
-      message: 'Failed to submit answer',
-      details: 'Please try again'
+    if (error?.response?.status === 409) {
+      // The server already has an answer for this problem (e.g. the response
+      // to an earlier submit was lost): resync instead of replaying it
+      await resyncWithServer()
+    } else {
+      // Keep the form and the typed answer so the player can simply retry;
+      // the inline message replaces the generic toast for this failure
+      submitError.value = 'Your answer could not be sent. Please try again.'
+      gameStore.error = null
     }
   } finally {
     isSubmitting.value = false
   }
 }
 
+async function resyncWithServer() {
+  const sessionId = currentSession.value?.sessionId
+  if (!sessionId) return
+  try {
+    await gameStore.resumeSession(sessionId)
+    userAnswer.value = ''
+    if (gameStore.scorecard) {
+      router.push({ name: 'scorecard' })
+      return
+    }
+    submitError.value = 'That problem was already answered, so here is the next one.'
+    await nextTick()
+    answerInput.value?.focus()
+  } catch {
+    submitError.value = 'Your answer could not be sent. Please try again.'
+  }
+}
+
 async function handleNextProblem() {
   feedback.value = null
+  submitError.value = null
   userAnswer.value = ''
 
   if (currentProblemNumber.value > totalProblems.value) {

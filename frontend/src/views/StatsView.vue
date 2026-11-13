@@ -197,6 +197,7 @@ import { authService } from '@/services/auth'
 import { useGameStore } from '@/stores/game'
 import type { DifficultyLevel } from '@/types'
 import GameLoadingOverlay from '@/components/GameLoadingOverlay.vue'
+import { bucketSessionsByLocalDay, localDateKey, parseDateKey } from '@/utils/dates'
 
 const router = useRouter()
 const gameStore = useGameStore()
@@ -219,6 +220,10 @@ const currentMonthName = computed(() => {
   return monthNames[now.getMonth()] + ' ' + now.getFullYear()
 })
 
+// Bucket by the player's local day; the server's dailyActivity is keyed by
+// UTC date, which moves evening games onto the next day
+const localDailyActivity = computed(() => bucketSessionsByLocalDay(sessions.value))
+
 const yearDays = computed(() => {
   const days: Array<{ date: string, activity: any }> = []
   const now = new Date()
@@ -237,8 +242,8 @@ const yearDays = computed(() => {
     const date = new Date(startMonday)
     date.setDate(startMonday.getDate() + i)
 
-    const dateKey = date.toISOString().split('T')[0]
-    const activity = stats.value.dailyActivity?.[dateKey] || null
+    const dateKey = localDateKey(date)
+    const activity = localDailyActivity.value[dateKey] || null
 
     days.push({ date: dateKey, activity })
   }
@@ -391,7 +396,7 @@ function getActivityLevel(activity: any): string {
 }
 
 function getDayTooltip(day: { date: string, activity: any }): string {
-  const date = new Date(day.date)
+  const date = parseDateKey(day.date)
   const formattedDate = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 
   if (!day.activity) {

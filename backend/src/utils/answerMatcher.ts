@@ -5,9 +5,22 @@
  * e.g., "2/4" is accepted when the correct answer is "1/2".
  */
 
+/**
+ * Drops whitespace, except a single space between two digits: "4 2" must not
+ * become "42", and "1 1/2" (a mixed number) must not become "11/2".
+ */
+function collapseWhitespace(str: string): string {
+  return str.trim().replace(/\s+/g, (_match, offset: number, whole: string) => {
+    const before = whole[offset - 1]
+    const after = whole[offset + _match.length]
+    return /\d/.test(before ?? '') && /\d/.test(after ?? '') ? ' ' : ''
+  })
+}
+
+// Model output can carry answers as JSON numbers, so accept anything stringable
 export function normalizeAnswer(answer: string): string {
   // A trailing percent sign is cosmetic ("25%" and "25" are the same answer)
-  return answer.toString().toLowerCase().trim().replace(/\s+/g, '').replace(/%$/, '')
+  return collapseWhitespace(String(answer).toLowerCase()).replace(/%$/, '')
 }
 
 export function gcd(a: number, b: number): number {
@@ -22,7 +35,7 @@ export function gcd(a: number, b: number): number {
 }
 
 export function parseFraction(str: string): { numerator: number; denominator: number } | null {
-  const normalized = str.trim().replace(/\s+/g, '')
+  const normalized = collapseWhitespace(String(str))
   const match = normalized.match(/^(-?\d+)\/(-?\d+)$/)
   if (!match) return null
 
@@ -74,6 +87,15 @@ export function numericValue(str: string): number | null {
   const fraction = parseFraction(normalized)
   if (fraction) {
     return fraction.numerator / fraction.denominator
+  }
+
+  // Mixed number: "1 1/2" is 3/2, "-2 1/4" is -9/4
+  const mixed = normalized.match(/^(-?)(\d+) (\d+)\/(\d+)$/)
+  if (mixed) {
+    const denominator = parseInt(mixed[4], 10)
+    if (denominator === 0) return null
+    const magnitude = parseInt(mixed[2], 10) + parseInt(mixed[3], 10) / denominator
+    return mixed[1] === '-' ? -magnitude : magnitude
   }
 
   if (/^-?(\d+\.?\d*|\.\d+)$/.test(normalized)) {

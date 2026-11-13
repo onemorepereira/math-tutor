@@ -93,20 +93,9 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     )
 
     // Record the hint on the session so submitAnswer scores the penalty
-    // server-side; keep the highest hint number issued per problem
-    const hintsRequested = {
-      ...(session.hintsRequested ?? {}),
-      [problemId]: Math.max(session.hintsRequested?.[problemId] ?? 0, hintNumber)
-    }
-
-    await dynamodb.send(new UpdateCommand({
-      TableName: GAME_SESSION_TABLE,
-      Key: { sessionId },
-      UpdateExpression: 'SET hintsRequested = :hintsRequested',
-      ExpressionAttributeValues: {
-        ':hintsRequested': hintsRequested
-      }
-    }))
+    // server-side. Write only this problem's entry, so concurrent hints on
+    // other problems are not overwritten, and never lower a recorded hint
+    await recordHint(sessionId, problemId, hintNumber, session.hintsRequested === undefined)
 
     const hint = {
       hintNumber,
@@ -117,5 +106,35 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     return createSuccessResponse({ hint })
   } catch (error) {
     return sanitizeError(error, 'requestHint')
+  }
+}
+
+async function recordHint(sessionId: string, problemId: string, hintNumber: number, needsMap: boolean) {
+  try {
+    if (needsMap) {
+      // A nested path can only be set once its parent map exists
+      await dynamodb.send(new UpdateCommand({
+        TableName: GAME_SESSION_TABLE,
+        Key: { sessionId },
+        UpdateExpression: 'SET hintsRequested = if_not_exists(hintsRequested, :emptyMap)',
+        ExpressionAttributeValues: { ':emptyMap': {} }
+      }))
+    }
+
+    await dynamodb.send(new UpdateCommand({
+      TableName: GAME_SESSION_TABLE,
+      Key: { sessionId },
+      UpdateExpression: 'SET hintsRequested.#problemId = :hintNumber',
+      ConditionExpression:
+        'isCompleted = :notCompleted AND (attribute_not_exists(hintsRequested.#problemId) OR hintsRequested.#problemId < :hintNumber)',
+      ExpressionAttributeNames: { '#problemId': problemId },
+      ExpressionAttributeValues: { ':hintNumber': hintNumber, ':notCompleted': false }
+    }))
+  } catch (error: any) {
+    // An equal or higher hint is already recorded, or the session completed
+    // meanwhile; either way the scoring outcome is already settled
+    if (error?.name !== 'ConditionalCheckFailedException') {
+      throw error
+    }
   }
 }

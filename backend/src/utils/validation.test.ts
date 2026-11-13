@@ -1,4 +1,4 @@
-import { validateSubcategories } from './validation.js'
+import { validateSubcategories, validateProblemCount } from './validation.js'
 
 describe('validateSubcategories', () => {
   it('accepts every middle-school topic the frontend offers', () => {
@@ -13,5 +13,16 @@ describe('validateSubcategories', () => {
 
   it('treats a missing value as valid (optional field)', () => {
     expect(validateSubcategories(undefined).isValid).toBe(true)
+  })
+})
+
+describe('validateProblemCount upper bound', () => {
+  it('accepts the largest count the UI offers', () => {
+    expect(validateProblemCount(20).isValid).toBe(true)
+  })
+
+  it('rejects counts the generator cannot produce in one response', () => {
+    expect(validateProblemCount(21).isValid).toBe(false)
+    expect(validateProblemCount(50).isValid).toBe(false)
   })
 })

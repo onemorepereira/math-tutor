@@ -63,3 +63,14 @@ test('returns the existing user instead of creating a duplicate for the same cog
   expect(JSON.parse(response.body).user.id).toBe('existing-user')
   expect(ddbMock.commandCalls(PutCommand)).toHaveLength(0)
 })
+
+test('returns the score fields the dashboard needs for new and existing users', async () => {
+  const created = JSON.parse((await handler(makeEvent({ ageGroup: 'elementary' }))).body).user
+  expect(created).toMatchObject({ totalScore: 0, gamesPlayed: 0 })
+
+  ddbMock.on(QueryCommand).resolves({
+    Items: [{ userId: 'existing-user', screenName: 'CleverFox42', ageGroup: 'elementary', totalScore: 120, gamesPlayed: 4 }]
+  })
+  const existing = JSON.parse((await handler(makeEvent({ ageGroup: 'elementary' }))).body).user
+  expect(existing).toMatchObject({ totalScore: 120, gamesPlayed: 4 })
+})

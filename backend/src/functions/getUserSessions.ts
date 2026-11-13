@@ -1,6 +1,6 @@
 import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda'
 import { QueryCommand } from '@aws-sdk/lib-dynamodb'
-import { dynamodb, USER_TABLE, GAME_SESSION_TABLE } from '../utils/dynamodb.js'
+import { dynamodb, queryAll, USER_TABLE, GAME_SESSION_TABLE } from '../utils/dynamodb.js'
 import { sanitizeError, createSuccessResponse, createErrorResponse } from '../utils/errorHandler.js'
 import { normalizeTopic } from '../utils/topicNormalizer.js'
 
@@ -29,17 +29,17 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const user = userResult.Items[0]
 
     // Get user's game sessions
-    const sessionsResult = await dynamodb.send(new QueryCommand({
+    const userSessions = await queryAll({
       TableName: GAME_SESSION_TABLE,
       IndexName: 'UserIdIndex',
       KeyConditionExpression: 'userId = :userId',
       ExpressionAttributeValues: {
         ':userId': user.userId
       }
-    }))
+    })
 
     // Sort sessions by startTime in descending order (newest first)
-    const sessions = (sessionsResult.Items || []).sort((a: any, b: any) => {
+    const sessions = userSessions.sort((a: any, b: any) => {
       const dateA = new Date(a.startTime).getTime()
       const dateB = new Date(b.startTime).getTime()
       return dateB - dateA

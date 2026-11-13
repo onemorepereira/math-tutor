@@ -81,3 +81,22 @@ test('per-grade achievements unlock from sessions at that grade', async () => {
   expect(byId['elementary_first']).toBe(false)
   expect(byId['middle_ten']).toBe(false)
 })
+
+test('reads every page of the user\'s sessions', async () => {
+  ddbMock.on(QueryCommand, { TableName: 'TestSessions' })
+    .resolvesOnce({
+      Items: [makeSession('elementary', ['Addition'], [true])],
+      LastEvaluatedKey: { sessionId: 'page-1-end' }
+    })
+    .resolvesOnce({
+      Items: [makeSession('middle', ['Geometry'], [true])]
+    })
+
+  const response = await handler(event)
+
+  expect(response.statusCode).toBe(200)
+  expect(JSON.parse(response.body).statistics.totalSessions).toBe(2)
+  const sessionQueries = ddbMock.commandCalls(QueryCommand, { TableName: 'TestSessions' })
+  expect(sessionQueries).toHaveLength(2)
+  expect(sessionQueries[1].args[0].input.ExclusiveStartKey).toEqual({ sessionId: 'page-1-end' })
+})

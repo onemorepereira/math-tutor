@@ -6,8 +6,10 @@ if (!CACHE_TABLE) {
   throw new Error('CACHE_TABLE environment variable is not set')
 }
 
-// Cache TTL: 15 minutes
-const CACHE_TTL_SECONDS = 15 * 60
+// The scheduled refresh runs every 15 minutes (template.yaml). Entries must
+// outlive several periods so a late or failed run serves the last good data
+// instead of an empty leaderboard
+const CACHE_TTL_SECONDS = 60 * 60
 
 export async function getCachedData(cacheKey: string): Promise<any | null> {
   try {
