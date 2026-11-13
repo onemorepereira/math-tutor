@@ -47,3 +47,15 @@ describe('reconcileVerifiedAnswers', () => {
     expect(result.droppedIds).toEqual(['b'])
   })
 })
+
+test('reconciles problems whose generated answer is a JSON number', () => {
+  const problems = [
+    problem('a', 42 as unknown as string),
+    problem('b', 2.5 as unknown as string)
+  ]
+
+  const result = reconcileVerifiedAnswers(problems, { a: '42', b: '3' })
+
+  expect(result.problems.map(p => p.id)).toEqual(['a'])
+  expect(result.droppedIds).toEqual(['b'])
+})
