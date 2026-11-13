@@ -190,7 +190,20 @@ onMounted(async () => {
   // A finished game credits score server-side; show the updated belt
   authStore.refreshUser()
 
-  if (gameStore.currentSession) return
+  // An unfinished game still in memory (the player tapped away mid-game)
+  // can be continued directly, without asking the server
+  const inMemory = gameStore.currentSession
+  if (inMemory && !inMemory.isCompleted) {
+    resumable.value = {
+      sessionId: inMemory.sessionId,
+      difficulty: inMemory.difficulty,
+      startTime: inMemory.startTime,
+      problemCount: inMemory.problems.length,
+      correctCount: inMemory.attempts.filter((a) => a.isCorrect).length,
+      isCompleted: false
+    }
+    return
+  }
 
   try {
     const stats = await authService.getUserStats()
@@ -206,6 +219,11 @@ onMounted(async () => {
 
 async function continueGame() {
   if (!resumable.value) return
+
+  if (gameStore.currentSession?.sessionId === resumable.value.sessionId && !gameStore.currentSession.isCompleted) {
+    router.push({ name: 'game' })
+    return
+  }
 
   try {
     await gameStore.resumeSession(resumable.value.sessionId)
