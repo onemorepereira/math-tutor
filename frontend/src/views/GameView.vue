@@ -154,7 +154,9 @@
       <LeaveGameDialog :open="leaveDialogOpen" @leave="confirmLeave" @stay="cancelLeave" />
     </div>
 
-    <div v-else class="load-failure card" data-test="load-failure">
+    <!-- Only when a game exists but can't be shown: after logout (no session)
+         the view is about to leave, so it renders nothing instead -->
+    <div v-else-if="currentSession" class="load-failure card" data-test="load-failure">
       <p>We couldn't load your game.</p>
       <button type="button" class="btn btn-primary" @click="router.push({ name: 'home' })">Back to Home</button>
     </div>

@@ -283,6 +283,14 @@ describe('GameView — leaving and resuming', () => {
     expect(wrapper.find('[data-test="feedback"]').exists()).toBe(false)
   })
 
+  it('shows no error while logging out (no session)', async () => {
+    await startGame()
+    const wrapper = await mountGame()
+    store.resetGame()
+    await flushPromises()
+    expect(wrapper.find('[data-test="load-failure"]').exists()).toBe(false)
+  })
+
   it('offers a way home when the game cannot be shown', async () => {
     store.currentSession = session([problem('a')])
     const wrapper = await mountGame()
